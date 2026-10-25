@@ -1,0 +1,19 @@
+# CLI source upload allowlist. Public output has its own stricter build allowlist.
+*
+!index.html
+!app.js
+!care-state.js
+!participant-screens.js
+!research-state.js
+!style.css
+!participant.css
+!studio
+studio/*
+!studio/index.html
+!scripts
+scripts/*
+!scripts/build.mjs
+!package.json
+!package-lock.json
+!vercel.json
+!.vercelignore

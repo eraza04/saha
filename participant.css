@@ -1,0 +1,14 @@
+html, body.participant { height: 100%; }
+body.participant { background: #f8f9f3; overflow: hidden; }
+.participant .skip { left: 12px; }
+.participant main.phone { margin: 0; padding: 0; width: 100%; max-width: none; height: 100vh; height: 100dvh; border: 0; border-radius: 0; box-shadow: none; overflow: hidden; display: flex; flex-direction: column; }
+.participant .app-shell { flex: 1; min-height: 0; width: 100%; height: auto; }
+.participant .app-top { padding-top: max(8px, env(safe-area-inset-top)); padding-left: max(16px, env(safe-area-inset-left)); padding-right: max(16px, env(safe-area-inset-right)); }
+.participant .app-body { width: 100%; max-width: 680px; align-self: center; padding: 24px 20px; overscroll-behavior-y: contain; }
+.participant .app-nav { padding: 9px max(4px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(4px, env(safe-area-inset-left)); gap: 2px; flex: 0 0 auto; }
+.participant .app-nav button { font-size: .68em; min-width: 0; }
+.participant .app-nav button span { white-space: nowrap; }
+.participant .app-top-btn { font-size: .8em; min-width: 44px; }
+.participant .participant-message { display: none; flex: 0 0 auto; padding: 10px 18px; background: var(--app-soft); color: var(--app-ink); font-size: .8em; line-height: 1.5; border-top: 1px solid var(--app-line); }
+.participant .participant-message.visible { display: block; max-height: 25dvh; overflow: auto; }
+.storage-notice { padding: 10px 16px; background: #fff2d4; color: #523b14; font-size: 16px; line-height: 1.5; flex: 0 0 auto; }

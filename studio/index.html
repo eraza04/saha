@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#164f43"><meta name="description" content="Saha: an accessible mHealth interface concept, clickable prototype, wireframe atlas, and HCI study plan.">
+<title>Saha — care, at your pace</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body data-mode="studio">
+<a class="skip" href="#main">Skip to workspace</a>
+<aside class="sidebar">
+ <a class="brand" href="#prototype" aria-label="Saha design studio"><span class="brand-mark">s</span><span>saha<span class="brand-sub">CARE, AT YOUR PACE</span></span></a>
+ <div class="sidebar-label">INTERFACE DESIGN STUDIO</div>
+ <nav id="studio-nav" aria-label="Studio">
+  <button data-view="prototype" class="side-link active"><span data-icon="phone"></span>Interactive prototype<span class="tiny-number">01</span></button>
+  <button data-view="atlas" class="side-link"><span data-icon="grid"></span>Screen atlas<span class="tiny-number">02</span></button>
+  <button data-view="flows" class="side-link"><span data-icon="route"></span>Journeys & states<span class="tiny-number">03</span></button>
+  <button data-view="system" class="side-link"><span data-icon="sliders"></span>Design decisions<span class="tiny-number">04</span></button>
+  <button data-view="study" class="side-link"><span data-icon="clipboard"></span>Evaluation lab<span class="tiny-number">05</span></button>
+ </nav>
+ <div class="side-note"><span class="small-dot"></span> Designed for independence<p>Motor difficulties.<br>Mild visual difficulties.<br>One familiar experience.</p></div>
+ <div class="sidebar-bottom"><span>HCI PROJECT CONCEPT</span><p>Customizable by choice.<br>Never silently rearranged.</p></div>
+</aside>
+<main id="main"><div id="storage-notice" class="storage-notice" role="status" hidden></div><p><a href="/" target="saha-participant">Open full-screen participant app</a> · <span data-local-documents><a href="/docs/EXPERIMENTAL_PLAN.md" target="_blank">Experimental plan</a> · <a href="/docs/DEMO_SCRIPT.md" target="_blank">Demo script</a> · </span>Fictional data only</p>
+ <header class="studio-header"><div><span class="eyebrow">MOBILE HEALTH / HUMAN–COMPUTER INTERACTION</span><h1>Care, at your pace<span>.</span></h1><p>A little less effort. A little more independence.</p></div><button id="present-btn" class="outline-btn"><span data-icon="expand"></span>Focus on app</button></header>
+ <section id="view-prototype" class="studio-view">
+  <div class="work-toolbar"><div class="segmented" aria-label="Rendering style"><button id="polished-btn" aria-pressed="true" class="active">Visual prototype</button><button id="wire-btn" aria-pressed="false">Wireframes</button></div><div class="toolbar-right"><span class="demo-dot"></span>Interactive · fictional data<button id="reset-btn" class="text-btn"><span data-icon="reset"></span>Reset</button></div></div>
+  <div class="prototype-layout">
+   <section class="screen-navigator" aria-label="Screen navigator"><span class="eyebrow">EXPLORE THE EXPERIENCE</span><h2>Small steps.<br>Clear choices.</h2><p class="nav-description">Choose a journey, or tap through the app.</p><div id="screen-list"></div><div class="callout"><span data-icon="hand"></span><p>Try the whole journey.<br><strong>Home → reminder → taken → undo.</strong></p></div></section>
+   <div class="device-stage"><div class="device-caption"><span id="screen-code">S04</span><span id="screen-title">Today</span><span id="condition-label">Accessible + gestures</span></div><div id="phone" class="phone"><div class="phone-status"><span>9:00</span><div class="phone-island"></div><span class="status-right">● ▰</span></div><div id="app" class="app-shell"></div><div class="home-indicator"></div></div><p class="stage-caption">A working interaction model. No real calls, prescriptions, or background alerts.</p></div>
+   <aside class="annotation-panel"><div class="annotation-heading"><span class="eyebrow">BEHIND THE SCREEN</span><span class="annotation-index" id="annotation-code">04 / 22</span></div><h2 id="note-title"></h2><p id="note-summary"></p><div id="note-details"></div><div class="condition-card"><h3>Compare the interface</h3><p>Same tasks and records. Different interaction support.</p><label for="condition">Study configuration</label><select id="condition"><option value="C">C · Accessible + optional gestures</option><option value="B">B · Accessible, buttons only</option><option value="A">A · Conventional baseline</option></select><div id="gesture-state"></div></div><button id="show-reminder" class="outline-btn full"><span data-icon="bell"></span>Show medicine reminder</button><div class="quiet-note">Comfort settings are chosen by the person or their helper. The app does not infer disability.</div></aside>
+  </div>
+ </section>
+ <section id="view-atlas" class="studio-view" hidden><div class="section-intro"><span class="eyebrow">THE COMPLETE SCREEN SET</span><h2>Every screen has a job.</h2><p>22 screens and states, from the first welcome to recovering an accidental action. Select any screen to open it in the live prototype.</p></div><div class="atlas-toolbar"><div id="atlas-filters" class="segmented wrap"></div><button id="atlas-wire-btn" class="outline-btn">Show wireframes</button></div><div id="atlas-grid" class="atlas-grid"></div></section>
+ <section id="view-flows" class="studio-view" hidden><div class="section-intro"><span class="eyebrow">TASKS, TRANSITIONS & RECOVERY</span><h2>Always a way forward.<br>Always a way back.</h2><p>Visible controls remain available. Gestures move between main sections; they never record a dose or start a call.</p></div><div id="flow-content"></div></section>
+ <section id="view-system" class="studio-view" hidden><div class="section-intro"><span class="eyebrow">PRODUCT LOGIC & DESIGN SPECIFICATION</span><h2>Calm is a design decision.</h2><p>Premium restraint, generous controls, and predictable behaviour. Accessibility is part of the structure.</p></div><div id="system-content"></div></section>
+ <section id="view-study" class="studio-view" hidden><div class="section-intro"><span class="eyebrow">COMPARISON & EVALUATION</span><h2>Test the choices.<br>Keep the evidence.</h2><p>A local rehearsal tool for your HCI study. Timings are exploratory; this prototype has not been tested with the target users.</p></div><div id="study-content"></div></section>
+ <footer class="studio-footer"><span>SAHA / HCI INTERFACE CONCEPT</span><span>Designed around people, not a diagnosis.</span></footer>
+</main>
+<div id="toast" class="studio-toast" role="status" aria-live="polite"></div>
+<script type="module" src="/app.js"></script>
+</body>
+</html>
