@@ -6,7 +6,7 @@ This is a presenter script for the course submission, separate from a participan
 
 1. In `C:\Users\ezanr\orca\projects\hci-project`, run `npm.cmd run dev` (or `npm run dev` on macOS/Linux).
 2. Open the participant app at http://localhost:5173/ and the studio at http://localhost:5173/studio/. Keep the researcher window outside participant view for any timed rehearsal.
-3. If previous study data exists, export the relevant session CSV/JSON and an all-sessions backup before considering reset. Reviewed reset is in Evaluation lab. It explicitly deletes local care/preferences/study data; Cancel preserves it.
+3. If previous study data exists, export the relevant session CSV/JSON and an all-sessions backup before considering reset. Reviewed reset is in Evaluation lab. It explicitly resets studio/study data while keeping personal records and preferences; Cancel preserves everything.
 4. For an ordinary demo, interact directly with the participant app. To demonstrate study tools, use a distinct `DEMO` session code, not a participant code. The fresh-scenario preparation warning explains what is replaced. Existing results remain stored.
 
 ## Function 1: medicine records and reminders
@@ -37,4 +37,18 @@ Export that session's task CSV and event JSON and inspect the code, session ID, 
 
 Show [EXPERIMENTAL_PLAN.md](EXPERIMENTAL_PLAN.md), [TASK_SCRIPT.md](TASK_SCRIPT.md), [OBSERVATION_SHEET.csv](OBSERVATION_SHEET.csv) and [POST_TEST_INTERVIEW.md](POST_TEST_INTERVIEW.md). State that recruitment, pilot and main experiments are planned; no findings or approval are claimed.
 
-Close by explaining that data is localStorage on this browser. There is no phone/laptop synchronization, backend, account, PWA installation or real offline app shell. A phone may load the app over the same Wi-Fi using the printed network address, but its records and study session are independent. The fictional care day and records do not roll into real daily prescriptions.
+Close by explaining that data is localStorage on this browser. There is no phone/laptop synchronization, backend, account, PWA installation or real offline app shell. A phone may load the app over the same Wi-Fi using the printed network address, but its records and study session are independent. Personal fictional medicines roll into separate local daily occurrences; study samples keep the fixed 25 October 2026 day. None are clinical prescriptions.
+
+## Record-management demonstration (build 1.2.2)
+
+Use Open personal records in the studio after saving/stopping any task. In Medicine choose Add medicine, enter a fictional name and daily reminder time, then Save. Show Cancel and validation. Record today as taken, review its date, edit the medicine and show that a changed time starts tomorrow. Archive it only after showing the confirmation/Cancel; open View all records to show retained history and correction.
+
+In Visits choose Add appointment, enter a fictional clinician/title, date, time, location/room and reminder choice. Add another date and show chronological ordering. Show Edit, Save/Cancel and the separate Delete confirmation. This never changes a clinical booking. In People choose Add contact, save a fictional name, relationship and number, then demonstrate the existing edit and simulated call confirmation.
+
+Keep Largest text, Stronger contrast and More space combined while trying the forms. All record actions are also available in A/B/C; C adds only optional main-section swipes. A scheduled in-page reminder becomes ready while the page is open and remains due after refresh. Closed-page/background reminders are unsupported. Task preparation replaces only study samples; reset studio/study data and then show that personal records remain. Exports/downloads stay local and need separate handling.
+
+## Explicit return navigation
+
+After saving a medicine, show its saved details and the header's Back to Medicine action. Open its reminder, scroll the content and use Back to Medicine again without recording or postponing it. After saving an appointment, show the single header Back to Visits action aligned with the title. Scroll and show that the header and bottom navigation remain fully visible, with no duplicate Back in the content. Compare the alignment on desktop and a narrow phone with largest text. Open View reminder, scroll, and use Back to appointment; this does not acknowledge the reminder. Refresh a detail/reminder page and demonstrate the same explicit return.
+
+On create/edit forms, point out the header's persistent Cancel action before and after scrolling. Adding cancels to the relevant section list; editing cancels to that saved record. The app header and Today/Medicine/Visits/People navigation stay outside the scrolling content. New screens start at the top with content focus after in-app navigation; invalid forms focus the invalid field. These controls and destinations are the same across A/B/C.

@@ -1,76 +1,57 @@
-# Deploy the reviewed Saha frontend to Vercel
+﻿# Release Saha to the existing Vercel project
 
-The application build remains `saha-phase1-1.1.0`. This preparation changes packaging and hosting configuration, not care/study logic. It creates no database, application authentication, background reminders, PWA or server function.
+This guide targets release `saha-phase1-1.2.2`: fictional record management, preserved study tools and one aligned header return. The app adds no backend, database, authentication, PWA installation or background reminders. The build is shown in Help and `document.documentElement.dataset.build`.
 
-## Current deployment status
+## Existing target and traceability
 
-Production is deployed and verified as of 25 October 2026:
+- Team: **NEURAAI**, slug `neuraai1`, ID `team_2Ksu7ukGnNA70RBWSoFki6c1`.
+- Existing project: **saha**, ID `prj_BhvogDCnEeFfGos9VinRp259pPNz`.
+- Participant URL: https://saha-lemon.vercel.app/
+- Studio URL: https://saha-lemon.vercel.app/studio/
+- Source: private `https://github.com/eraza04/saha`, branch `master`.
+- Deployment method: Vercel CLI; the project has **no Git repository connection**. Pushing backs up source and does not itself deploy this project.
 
-- Participant app: https://saha-lemon.vercel.app/
-- Studio/researcher tools: https://saha-lemon.vercel.app/studio/
-- Team/project: `NEURAAI (neuraai1) / saha`
-- Target/status: `production / READY`
-- Deployment: `dpl_2KHjpjQkvcMv3xE4PSK9EyP5e65u`
-- Build: `saha-phase1-1.1.0`, Other/static, Node 22.x; build command completed in 980 ms according to Vercel's build log.
-- Source: reviewed local working-tree upload, not a committed application release. The repository's HEAD is `9cecc6c`, but the application files are currently uncommitted; that commit alone does not reproduce this deployment.
+Commit and push reviewed source before uploading. Use `releaseCommit=<full HEAD SHA>` deployment metadata, and verify it with Vercel's deployment record after deployment. Record the actual deployment ID/URL, SHA, readiness and live check results in the release handover. This guide's local test results do not establish that an upload is live.
 
-The authenticated dry run was checked against an exact 13-file source allowlist before uploading. It exposed and corrected directory-negation matching in `.vercelignore`, so `studio/index.html` and `scripts/build.mjs` are included while private documents, exports and `.env.local` remain excluded. Vercel's build log confirms 13 uploaded build inputs and eight frontend output files. No application behavior or database was changed.
+The historical 1.1.0 deployment was `dpl_2KHjpjQkvcMv3xE4PSK9EyP5e65u`, with unique URL `https://saha-4wvhtqtg4-neuraai1.vercel.app`. Its source was initially uncommitted, then backed up as `30b324e481cdc3adef37e8f2103276df2931bb1e`. These identify the older release, not 1.2.2.
 
-All 18 browser tests passed against the actual public production origin in isolated Chrome contexts without Vercel credentials or bypass headers. These include direct access/refresh, `/studio` redirect, all assets, excluded-path 404s, medicine taken/review/correction, postponement, appointment details/acknowledgement, contacts/edit validation/call preview/cancel, combined preferences, slow touch swipes and boundaries, state restoration, session export/reset, and largest-text layouts at 320/360/390 px. All eight public frontend files also matched the local `dist` build byte-for-byte. Local syntax and all 10 unit/build tests passed before deployment. Physical-device and intended-user evaluation are still separate work.
+## Build settings and public files
 
-The two production links above are publicly accessible and do not require instructor login. The unique deployment URL, `https://saha-4wvhtqtg4-neuraai1.vercel.app`, redirects unauthenticated requests to Vercel Authentication. Protection was left unchanged. Share the stable `saha-lemon.vercel.app` links with the instructor, not the unique protected deployment URL.
-
-Post-deploy observability: a bounded production runtime-error query over five minutes returned zero records. No runtime functions are deployed. This is not continuous client-error monitoring; log drains were not inspected or configured in this task.
-
-## Files and routes
-
-`npm run build` runs `scripts/build.mjs` and creates a fresh, disposable `dist/` with exactly these files:
-
-```text
-dist/
-  index.html
-  studio/index.html
-  app.js
-  care-state.js
-  participant-screens.js
-  research-state.js
-  style.css
-  participant.css
-```
-
-`/` serves `index.html` (participant app). `/studio/` serves `studio/index.html` (studio/researcher tools). Vercel's `trailingSlash: true` canonicalizes `/studio` to `/studio/`; URLs for files with extensions keep their extensions. There is no catch-all rewrite to the participant HTML. Both entry pages can be opened directly and refreshed. Studio views use fragments such as `/studio/#study`; the current participant screen is restored from browser storage.
-
-HTML references `/app.js`, `/style.css` and `/participant.css` from the origin root. JavaScript module imports resolve beside `/app.js`. This configuration expects deployment at the domain root, not under a custom subdirectory. Vercel's static routing and output-directory behavior are documented in [project configuration](https://vercel.com/docs/project-configuration/vercel-json) and [build settings](https://vercel.com/docs/builds/configure-a-build).
-
-The build copies an explicit allowlist, never the whole project. It rejects source symlinks and a symlink substituted for `dist`, and rebuilds the generated directory from scratch. Do not store research exports in `dist`; rebuilding deletes its old contents.
-
-No documents, participant exports, credentials, `.env` files, `.git`, `.vercel`, test reports, dependencies, package metadata, scripts or `server.mjs` enter the public output. The generated studio omits the local Experimental plan/Demo script links because documents are not deployed. The source studio and local development document links remain intact. The running studio's browser-generated CSV/JSON download buttons still work; they do not require hosted export files.
-
-`.vercelignore` separately allowlists CLI source uploads: the eight frontend sources, `scripts/build.mjs`, `package.json`, `package-lock.json`, `vercel.json` and `.vercelignore`. Build/config/package files are uploaded for building but are not publicly served. `.gitignore` excludes `.vercel/`, credential/environment paths, export folders and `saha-*.csv`/`saha-*.json` downloads. Do not put credentials into any frontend source file: frontend JavaScript is public by design.
-
-The CLI upload allowlist does not control a Git integration's repository clone. For this project's requirement to exclude private documents from uploads as well as output, use the CLI path below. If Git-based deployment is needed later, use a separate sanitized deployment repository containing only the allowlisted deployment inputs, or review exactly what the connected repository shares with Vercel. Never commit participant exports or credentials.
-
-## Exact Vercel settings
-
-`vercel.json` supplies these settings; do not replace them with a root-directory static upload or an SPA catch-all rewrite.
-
-| Setting | Value |
+| Setting | Exact value |
 |---|---|
-| Framework Preset | **Other** (`framework: null`) |
-| Root Directory | Project root: `.` (the folder containing `package.json` and `vercel.json`) |
+| Framework | Other (`framework: null`) |
+| Root Directory | Project root, `.` |
 | Build Command | `npm run build` |
-| Output Directory | `dist` |
 | Install Command | `npm ci --omit=dev` |
-| Node.js Version | `22.x` (also specified in `package.json` engines) |
-| Environment Variables | None required |
-| Development Command | `npm run dev` for the local project; no hosted Node server |
-| Trailing slash | Enabled in `vercel.json` |
-| Static response headers | `Cache-Control: no-cache`, `X-Content-Type-Options: nosniff` |
+| Output Directory | `dist` |
+| Node.js | `22.x` |
+| Environment variables | None required by the application |
+| Trailing slash | `true` |
+| Headers | `Cache-Control: no-cache`, `X-Content-Type-Options: nosniff` |
 | Functions, databases, cron jobs | None |
 
-The production install omits Playwright because the build uses only Node built-ins. Development/browser checks use a normal `npm ci` with dev dependencies. `server.mjs` stays in the source tree for local development and preview, and is not deployed.
+`server.mjs` remains the local development/preview server. It is not deployed. Production installation omits Playwright because the build uses Node built-ins only.
 
-## Local preparation and preview
+`scripts/build.mjs` safely rebuilds an exact eight-file allowlist:
+
+```text
+dist/index.html
+dist/studio/index.html
+dist/app.js
+dist/care-state.js
+dist/participant-screens.js
+dist/research-state.js
+dist/style.css
+dist/participant.css
+```
+
+`/` and `/studio/` are real static entry pages, supporting direct loading and refresh. `/studio` redirects to `/studio/`; studio views can use fragments such as `/studio/#study`. Participant screens restore from localStorage. Assets use origin-root paths. There is no catch-all rewrite, so excluded/unknown paths remain 404.
+
+No credentials, `.env`, `.git`, `.vercel`, personal data, research exports, documents, tests, dependencies, package metadata, build scripts or server files enter public output. The generated studio removes links to excluded local documents; browser-generated study CSV/JSON downloads still work. The source studio retains its local document links. Fictional seed records and test fixtures are application source, not saved participant exports.
+
+`.vercelignore` separately limits CLI source uploads to 13 build inputs: the eight frontend sources, `scripts/build.mjs`, `package.json`, `package-lock.json`, `vercel.json` and `.vercelignore`. It excludes documentation, `.env.local`, `.vercel`, `.git`, dependencies, generated output, exports and reports. GitHub retains project documentation privately; Vercel receives only the allowlisted inputs. Do not put credentials in frontend code or save exports into disposable `dist`.
+
+## Checks before a release
 
 From `C:\Users\ezanr\orca\projects\hci-project`:
 
@@ -79,83 +60,74 @@ npm.cmd ci
 npm.cmd run check
 npm.cmd test
 npm.cmd run test:browser
+$env:SAHA_DEPLOYMENT_URL = $null
+$env:SAHA_PORT = '5175'
 npm.cmd run test:deployment
 ```
 
-Browser tests require installed Google Chrome. The README describes the bundled-Chromium alternative. `test:deployment` builds `dist`, starts a temporary local preview and runs the existing core-flow suite plus deployment-specific tests. It checks direct routes/refresh, modules/styles, excluded paths, phone layouts, medicine/visit/contact flows, combined preferences, touch swipes, storage and studio export/reset. This previews the built tree; it does not emulate every Vercel platform behavior.
+The browser suites require Google Chrome, or the Chromium alternative described in README. Port 5175 avoids conflicting with an already open preview at 5174. `test:deployment` builds and tests a local static server unless `SAHA_DEPLOYMENT_URL` is set; it does not upload or deploy anything.
 
-For manual inspection:
+Pre-release verification on 25 October 2026 passed syntax, 22 unit/build tests, 46 existing source-browser cases plus four new release journeys, and 48 existing static-preview cases plus those four release journeys. The four added journeys use desktop Chrome at 1280 x 900 and phone touch emulation at 320/360/390 x 740 with Largest text, Stronger contrast and More space combined. They verify medicine/appointment add/edit/save/back, reminder review, scroll, fresh-document entry, refresh persistence, actual header/title geometry, one equivalent return and fully visible navigation. The earlier suites also cover correction, archive history, v1 migration, personal/study separation, export/reset, form recovery, B/C presentation and slow-swipe boundaries. These are developer checks, not physical-phone or participant testing.
+
+For manual source/packaged previews:
 
 ```powershell
-npm.cmd run build
+npm.cmd run dev
+# In a separate terminal, after building:
 npm.cmd run preview
 ```
 
-Keep that terminal open. Static preview:
+- Source: http://localhost:5173/ and http://localhost:5173/studio/
+- Built preview: http://localhost:5174/ and http://localhost:5174/studio/
 
-- http://localhost:5174/
-- http://localhost:5174/studio/
+## Account, review and production upload
 
-`npm.cmd run dev` continues to serve the original local project at http://localhost:5173/ and http://localhost:5173/studio/, including the local academic documents. `SAHA_PORT` overrides either server's default port. On macOS/Linux use `npm` instead of `npm.cmd`.
-
-## Account steps and deployment
-
-Use your own Vercel account/team. A Vercel hosting-account login is separate from application authentication; Saha itself still has no login or accounts.
-
-1. Visit [Vercel signup](https://vercel.com/signup) or sign in at [Vercel login](https://vercel.com/login). Choose the account/team authorized for this course project. Do not paste access tokens into the project or chat.
-2. Open a normal interactive terminal in the active project directory. Authenticate and check identity:
+1. Use the existing Vercel login. If it has expired, run `npx.cmd --yes vercel@65.2.0 login` and complete the browser/device flow yourself. Never paste access tokens into chat or source.
+2. Check identity and the link from this exact project directory:
 
    ```powershell
-   npx.cmd --yes vercel@65.2.0 login
    npx.cmd --yes vercel@65.2.0 whoami
+   npx.cmd --yes vercel@65.2.0 project inspect --scope neuraai1 --non-interactive
    ```
 
-   Complete Vercel's browser/device login yourself. Stop if the reported account is not the intended one. Commands use the CLI version checked during preparation; future versions may change prompts. See [CLI login](https://vercel.com/docs/cli/login).
-
-3. Link the directory to a new project or the specific project you intend to update:
-
-   ```powershell
-   npx.cmd --yes vercel@65.2.0 link --yes --scope neuraai1 --project saha --non-interactive
-   ```
-
-   The application is now linked to the existing `saha` project under `neuraai1`. Confirm that exact owner/project with `vercel project inspect --non-interactive` before subsequent releases. The code directory is the project root and the framework is Other. Keep the checked-in build/output/install settings above. Do not select or create `saha-phase1`. Local link metadata is in ignored `.vercel/`.
-
-4. In that project's Settings, confirm the table above, including Node 22.x. Inspect deployment source inputs without uploading:
+   Confirm NEURAAI/saha, the IDs above and the checked-in settings. `.vercel/project.json` is ignored local metadata. Stop on a missing link or mismatch; do not create another project or select `saha-phase1`.
+3. Review/stage only application source, tests, scripts, configuration and project documentation. Check `.gitignore`, `git diff --cached --check` and `git diff --cached --name-only`. Preserve unrelated work. Commit to `master`, push normally to `origin`, and verify `origin/master` matches HEAD. Do not force-push.
+4. Inspect the dry run:
 
    ```powershell
    npx.cmd --yes vercel@65.2.0 deploy --dry --json --scope neuraai1
    ```
 
-   Check that documents, exports, credentials and reports are absent. If extra files appear, stop and fix the allowlist before deploying. The dry run also needs account access in the CLI path available during preparation.
-
-5. Deploy the reviewed project:
-
-   ```powershell
-   npx.cmd --yes vercel@65.2.0 deploy --prod --scope neuraai1 --project saha --yes --non-interactive
-   ```
-
-   Review the settings against the table before running the production command. Wait for deployment readiness, then verify the actual HTTPS production alias printed by Vercel. The current verified alias is `https://saha-lemon.vercel.app`. A unique deployment URL may be protected even when the stable production alias is public. Do not use `--public`; build/source logs are not intended as a public document-sharing channel. See [CLI deployment](https://vercel.com/docs/cli/deploy).
-
-6. Open the actual origin's `/` and `/studio/` URLs directly, then refresh both. Check `/studio` redirects to `/studio/`. If Vercel Deployment Protection requires the presenter/instructor to sign in, use an approved dashboard sharing method or the project's permitted protection setting before sharing the URL; do not add authentication to Saha or put a protection-bypass secret in application code.
-
-7. Verify the live deployment with the same automated core checks. Use the verified production origin below; update it if the production alias changes:
+   Require the exact 13-file input allowlist and eight-file build output above. Stop if private/export/document paths appear.
+5. Upload production to the **existing** project, recording the pushed commit:
 
    ```powershell
-   $env:SAHA_DEPLOYMENT_URL = 'https://saha-lemon.vercel.app'
-   npm.cmd run test:deployment
-   Remove-Item Env:SAHA_DEPLOYMENT_URL
+   $releaseCommit = git rev-parse HEAD
+   npx.cmd --yes vercel@65.2.0 deploy --prod --scope neuraai1 --project saha --yes --non-interactive --meta "releaseCommit=$releaseCommit"
    ```
 
-   This mode does not start a local server. It uses isolated browser contexts and invented test codes/data to test the real origin, including browser-local session exports/reset. It needs a URL reachable by the browser without an interactive Vercel protection challenge. Keep any legitimate study data out of automated test contexts.
+   The normal source upload uses Vercel's checked-in build configuration. This is not a `--prebuilt` upload; the independently verified `dist` output must match what Vercel produces. Do not use `--public` or change deployment protection. Wait for READY and verify the actual production alias reported by Vercel. `vercel inspect` and `vercel api` can confirm the deployment's project, production target and commit metadata.
 
-8. Manually verify medicine reminder → record taken → review → correction; postpone → confirmation with original schedule; appointment date/time/location; contact confirmation → cancel/preview; combined preferences; refresh/restore. Ensure `/docs/EXPERIMENTAL_PLAN.md`, `/server.mjs`, `/package.json`, `/.env` and research-export paths return 404. If a check fails, resolve it before calling the deployment verified or sharing it as the submission.
+## Live checks and instructor access
 
-9. Record the verified URL and date in your submission. A redeploy uses the same linked-project command. Before changing the production domain or clearing browser data, export study sessions and verify the downloads.
+The stable production alias was publicly accessible on the previous release. The project retains Vercel protection `all_except_custom_domains`; unique deployment URLs can redirect to Vercel Authentication. Check current unauthenticated responses at both production routes before sharing. Prefer the stable production URLs with the instructor. If protection blocks them, report that limitation; do not weaken project protection or publish a bypass secret.
 
-## Storage, privacy and hosting limitations
+Run the full suite on the actual live origin, in isolated browser contexts with fictional data:
 
-Vercel hosts the frontend files; it does not receive care records or study results through an application API. The same localStorage keys remain: `saha:v1:participant`, `saha:v1:studio`, and `saha:v1:research`. Export buttons create browser downloads. There is still no cross-device synchronization.
+```powershell
+$env:SAHA_DEPLOYMENT_URL = 'https://saha-lemon.vercel.app'
+npm.cmd run test:deployment
+Remove-Item Env:SAHA_DEPLOYMENT_URL
+```
 
-Storage belongs to an origin/profile. Localhost, a LAN IP, a preview deployment and the final production/custom domain have separate storage. Deploying does not migrate earlier care/study data. Use a stable production origin for a study, export before switching origins and follow the instructor's data-handling requirements. Browser-local study information is not access-controlled by Saha, and `/studio/` is publicly reachable when the site is public. Use fictional care details and participant codes, not real patient data, identities or consent documents.
+Remote mode starts no local server. It now includes 52 cases: both routes/direct loading/refresh, `/studio` redirect, assets, excluded-path 404s, medicines/appointments/contacts, recovery, study tools and layout. The release journeys cover a real desktop browser context as well as phone emulation. Tests store invented records only inside their own temporary browser profiles; resets do not touch the presenter's browser data.
 
-Calls remain simulated. Foreground reminder checks are not background/system notifications. HTTPS hosting does not install a PWA, provide an offline app shell or make reminders reliable when the page is closed. Physical-phone, assistive-technology and intended-user evaluation remain separate from developer deployment checks.
+Verify the public `care-state.js` build and compare **all eight public output files byte-for-byte** against the tested `dist` files. Confirm `releaseCommit` matches the pushed SHA. Check header/content alignment and a single equivalent return after Save, reminder review, scrolling, refresh and entry without history. Preserve fictional medicines, appointments, contacts, dated occurrences and reminder acknowledgement state across return navigation. Save local screenshots and measurements outside deployment inputs. A bounded runtime-error query can supplement this, but a static frontend's logs do not provide continuous client-error monitoring.
+
+## Storage and remaining limitations
+
+All records remain browser-local JSON in localStorage: `saha:v1:participant` (personal fictional records), `saha:v1:scenario` (isolated study samples), `saha:v1:workspace` (personal/study selection), `saha:v1:studio` and `saha:v1:research`. Care version 1 migrates to version 2 without discarding prior history; damaged data is retained with writes blocked. Study reset does not erase personal records. Downloads are independent files, not cloud backups.
+
+Vercel serves frontend files and receives no care/study data through an application API. Data does not synchronize across phones/laptops or origins. Localhost, LAN IPs, unique previews and the production alias have separate stores. A same-origin app update can migrate saved state; deploying never copies data between origins. Export before switching origins or clearing data. Use fictional details and participant codes only. The studio is publicly reachable with the site and is not access-controlled; never host identities, real health information, consent forms or research exports there.
+
+Calls remain simulated. Reminders work only while the page is open; HTTPS does not add background notifications, clinical reliability, a PWA or offline shell. Physical iOS/Android phones, Safari, virtual keyboards/cutouts, assistive technologies and intended-user/pilot studies require separate evaluation.

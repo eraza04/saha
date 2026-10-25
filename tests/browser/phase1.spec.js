@@ -2,7 +2,12 @@ import { test, expect } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
 const nav=(page,name)=>page.getByRole('navigation',{name:'Main app sections'}).getByRole('button',{name,exact:true}).click();
 async function start(page){await page.goto('/');await page.getByRole('button',{name:'Start with Today'}).click();}
-async function care(page){return page.evaluate(()=>JSON.parse(localStorage.getItem('saha:v1:participant'))?.state??null);}
+async function care(page){return page.evaluate(()=>{
+ const key=JSON.parse(localStorage.getItem('saha:v1:workspace')||'null')==='study'?'saha:v1:scenario':'saha:v1:participant';
+ const s=JSON.parse(localStorage.getItem(key))?.state;if(!s)return null;
+ const latest=id=>Object.values(s.occurrences).filter(o=>o.medicineId===id).sort((a,b)=>b.date.localeCompare(a.date))[0];
+ return {...s,doses:{A:latest('A'),B:latest('B')},contact:s.contacts[0],otherContact:s.contacts[1]};
+});}
 async function touchSwipe(page,x,y,dx,dy=0){
   const cdp=await page.context().newCDPSession(page);
   await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x,y}]});
@@ -28,7 +33,7 @@ test('root is participant only; both medicines record, persist, prevent duplicat
   await page.getByRole('button',{name:'Correct record',exact:true}).click();
   await expect(page.locator('.app-body')).toContainText('not an instruction to take another dose');
   expect((await care(page)).doses.A.status).toBe('taken');expect((await care(page)).doses.B.status).toBe('pending');
-  await page.getByRole('button',{name:'Back',exact:true}).click();await expect(page.locator('.app-body')).toContainText('Medicine B');await expect(page.getByRole('heading',{name:'Recorded taken',exact:true})).toHaveCount(0);
+  await page.getByRole('button',{name:'Back to Medicine',exact:true}).click();await expect(page.locator('.app-body')).toContainText('Medicine B');await expect(page.getByRole('heading',{name:'Recorded taken',exact:true})).toHaveCount(0);
   await page.reload();expect((await care(page)).doses.B.status).toBe('pending');expect(errors).toEqual([]);
 });
 test('postpone and replace reminder; foreground due reminder; prescribed schedule stays unchanged',async({page})=>{
@@ -38,11 +43,11 @@ test('postpone and replace reminder; foreground due reminder; prescribed schedul
   const first=(await care(page)).doses.A;expect(first.delay).toBe(20);expect(first.remindAt).toBeTruthy();
   await page.getByRole('button',{name:'Change reminder'}).click();await page.getByRole('button',{name:'30 minutes',exact:true}).click();
   await page.reload();expect((await care(page)).doses.A.delay).toBe(30);
-  await page.evaluate(()=>{const x=JSON.parse(localStorage.getItem('saha:v1:participant'));x.state.doses.A.remindAt=new Date(Date.now()-1000).toISOString();localStorage.setItem('saha:v1:participant',JSON.stringify(x));});
+  await page.evaluate(()=>{const x=JSON.parse(localStorage.getItem('saha:v1:participant'));x.state.occurrences[x.state.selectedOccurrenceId].remindAt=new Date(Date.now()-1000).toISOString();localStorage.setItem('saha:v1:participant',JSON.stringify(x));});
   await page.reload();await expect(page.locator('#foreground-reminders')).toContainText('Medicine A reminder is ready');
 });
 test('appointment details and reminder acknowledgement remain visible after reload',async({page})=>{
-  await start(page);await nav(page,'Visits');await page.locator('[data-action="go:visit"]').click();
+  await start(page);await nav(page,'Visits');await page.locator('[data-action="appointment:sample-visit"]').click();
   await expect(page.locator('.app-body')).toContainText('Tuesday, 27 October 2026');await expect(page.locator('.app-body')).toContainText('Room 04');
   await page.getByRole('button',{name:'View reminder'}).click();await page.getByRole('button',{name:'I’ve seen this'}).click();
   await expect(page.locator('.inline-feedback')).toContainText('Reminder acknowledged');await page.reload();await expect(page.locator('.inline-feedback')).toContainText('Booking unchanged');
@@ -88,7 +93,7 @@ test('damaged and unavailable storage recover with visible notices',async({page}
   await page.goto('/');await page.evaluate(()=>localStorage.setItem('saha:v1:participant','{broken'));await page.reload();await expect(page.locator('#storage-notice')).toBeVisible();
   await page.getByRole('button',{name:'Start with Today'}).click();
   await page.addInitScript(()=>{Storage.prototype.getItem=()=>{throw new Error('disabled');};Storage.prototype.setItem=()=>{throw new Error('disabled');};});
-  await page.reload();await expect(page.locator('#storage-notice')).toContainText('cannot save');await page.getByRole('button',{name:'Start with Today'}).click();await nav(page,'Medicine');await expect(page.getByRole('heading',{name:'Medicine schedule'})).toBeVisible();
+  await page.reload();await expect(page.locator('#storage-notice')).toContainText('Changes may last only while this page is open');await page.getByRole('button',{name:'Start with Today'}).click();await nav(page,'Medicine');await expect(page.getByRole('heading',{name:'Medicine schedule'})).toBeVisible();
 });
 test('malformed saved study results recover without breaking the researcher view',async({page})=>{
   await page.goto('/studio/');await page.evaluate(()=>localStorage.setItem('saha:v1:research',JSON.stringify({version:1,results:[null],events:[],active:null})));await page.reload();await page.locator('[data-view="study"]').click();await expect(page.locator('#storage-notice')).toContainText('study data was damaged');await expect(page.locator('#export-results')).toBeDisabled();await page.locator('[data-view="prototype"]').click();await page.getByRole('button',{name:'Comfort settings',exact:true}).click();expect(await page.evaluate(()=>JSON.parse(localStorage.getItem('saha:v1:research')).results)).toEqual([null]);
@@ -110,13 +115,13 @@ test('coded sessions retain earlier outcomes, freeze B/C, review replacements, r
   await expect(page.locator('#begin-timer')).toBeVisible();await page.locator('#begin-timer').click();await participant.getByRole('button',{name:'Open reminder',exact:true}).click();await participant.getByRole('button',{name:'Record taken',exact:true}).click();
   await expect(page.locator('[data-task-result="completed"]')).toBeVisible();expect(await page.evaluate(()=>JSON.parse(localStorage.getItem('saha:v1:research')).results.length)).toBe(0);
   await page.locator('[data-task-result="completed"]').click();await expect(page.locator('.metric').first()).toContainText('1');
-  const b=await page.evaluate(()=>JSON.parse(localStorage.getItem('saha:v1:research')).results[0]);expect(b.build).toBe('saha-phase1-1.1.0');expect(b.participantCode).toBe('P01');expect(b.navigation.buttons).toBeGreaterThan(0);expect(b.gesturesEnabled).toBe(false);
+  const b=await page.evaluate(()=>JSON.parse(localStorage.getItem('saha:v1:research')).results[0]);expect(b.build).toBe('saha-phase1-1.2.2');expect(b.participantCode).toBe('P01');expect(b.navigation.buttons).toBeGreaterThan(0);expect(b.gesturesEnabled).toBe(false);
   await page.locator('[data-view="prototype"]').click();await page.locator('#condition').selectOption('C');await page.getByRole('button',{name:'Comfort settings',exact:true}).click();await page.getByRole('button',{name:'Standard text'}).click();
   await page.locator('[data-view="study"]').click();await page.locator('[data-start-task="later"]').click();await page.locator('#confirm-prepare').click();
   await expect(participant.getByRole('button',{name:'Postpone reminder'})).toBeVisible();await expect(participant.locator('#phone')).toHaveClass(/largest-text high-contrast roomy/);await page.locator('#begin-timer').click();
   await participant.getByRole('button',{name:'Postpone reminder'}).click();await participant.getByRole('button',{name:'20 minutes',exact:true}).click();await page.locator('#help-event').click();await page.locator('[data-task-result="completed"]').click();
   await expect(page.locator('.metric').first()).toContainText('2');const c=await page.evaluate(()=>JSON.parse(localStorage.getItem('saha:v1:research')).results[1]);expect(c.config).toEqual(b.config);expect(c.result).toBe('assisted');expect(c.gesturesEnabled).toBe(true);
-  const csvPromise=page.waitForEvent('download');await page.locator('#export-results').click();const csv=await csvPromise;expect(csv.suggestedFilename()).toContain('saha-P01-');const csvText=await readFile(await csv.path(),'utf8');expect(csvText).toContain('participantCode');expect(csvText).toContain('saha-phase1-1.1.0');expect(csvText).toContain('assisted');
+  const csvPromise=page.waitForEvent('download');await page.locator('#export-results').click();const csv=await csvPromise;expect(csv.suggestedFilename()).toContain('saha-P01-');const csvText=await readFile(await csv.path(),'utf8');expect(csvText).toContain('participantCode');expect(csvText).toContain('saha-phase1-1.2.2');expect(csvText).toContain('assisted');
   const jsonPromise=page.waitForEvent('download');await page.locator('#export-events').click();const json=await jsonPromise;const data=JSON.parse(await readFile(await json.path(),'utf8'));expect(data.session.participantCode).toBe('P01');expect(data.results).toHaveLength(2);expect(data.events.every(e=>e.participantCode==='P01')).toBe(true);
   await page.locator('#participant-code').fill('P02');await page.getByRole('button',{name:'Create new coded session'}).click();expect(await page.evaluate(()=>JSON.parse(localStorage.getItem('saha:v1:research')).results.length)).toBe(2);
   await page.locator('[data-start-task="home"]').click();await page.locator('#confirm-prepare').click();await page.locator('[data-task-result="failed"]').click();const rows=await page.evaluate(()=>JSON.parse(localStorage.getItem('saha:v1:research')).results);expect(rows[2].participantCode).toBe('P02');expect(rows[2].notStarted).toBe(true);expect(rows[2].sessionId).not.toBe(rows[0].sessionId);
@@ -154,6 +159,18 @@ for(const width of [320,360,390])test('largest combined settings reflow all scre
     const sizes=await page.evaluate(()=>{const el=document.querySelector('.app-body');return {page:document.documentElement.scrollWidth,body:el.scrollWidth,available:el.clientWidth,nav:document.querySelector('.app-nav').getBoundingClientRect().bottom,height:innerHeight};});
     expect(sizes.page,id).toBeLessThanOrEqual(width);expect(sizes.body,id).toBeLessThanOrEqual(sizes.available);expect(sizes.nav,id).toBeLessThanOrEqual(sizes.height);
     expect(await page.locator('[data-action="nav:meds"]').evaluate(el=>el.scrollWidth<=el.clientWidth),id+' navigation label').toBe(true);
+    const back=page.locator('.app-return button');
+    if(['home','welcome'].includes(id))await expect(back).toHaveCount(0);
+    else{
+      await expect(back).toHaveCount(1);await expect(back).toBeInViewport({ratio:1});
+      const action=await back.getAttribute('data-action');
+      await expect(page.locator('#screen-content [data-action="'+action+'"]')).toHaveCount(0);
+      const box=await back.boundingBox(),title=await page.locator('#screen-content h2').boundingBox();
+      expect(box.x,id+' Back/title alignment').toBeCloseTo(title.x,1);expect(box.y+box.height,id+' Back above title').toBeLessThanOrEqual(title.y);
+      await page.locator('.app-body').evaluate(el=>el.scrollTop=el.scrollHeight);await expect(back).toBeInViewport({ratio:1});
+      expect(await back.boundingBox(),id+' persistent Back').toEqual(box);
+    }
+    for(const button of await page.locator('.app-nav button').all())await expect(button).toBeInViewport({ratio:1});
     if(id==='settings'&&width===320)await page.screenshot({path:'test-results/settings-320.png'});
   }
 });

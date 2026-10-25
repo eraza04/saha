@@ -1,9 +1,24 @@
 'use strict';
 import { renderScreen } from './participant-screens.js';
 import { newResearch, restoreResearch, makeSession, sessionContext, newId } from './research-state.js';
-import { BUILD, PREFIX, MEDICINES, VISIT, defaults, restore, snapshot, changeMedicine, validContact, preferences } from './care-state.js';
+import { BUILD, PREFIX, defaults, restore, snapshot, changeMedicine, preferences, selectedOccurrence, selectedAppointment, selectMedicine, occurrenceForDay, ensureOccurrences, careDay, dayLabel, timeLabel, dueReminders, saveMedicine, archiveMedicine, saveAppointment, deleteAppointment, saveContact, validTime, validDay, appointmentReminderAt } from './care-state.js';
 const isStudio = document.body.dataset.mode === 'studio';
-const DATA_KEY = PREFIX + (isStudio ? 'studio' : 'participant');
+document.documentElement.dataset.build=BUILD;
+if(!isStudio){
+  // Follow the iframe/device's actual visible height, including viewport resize.
+  // Only the central app body scrolls; the document itself stays stationary.
+  const syncViewport=()=>{
+    const viewport=window.visualViewport;
+    document.documentElement.style.setProperty('--participant-height',(viewport?.height||window.innerHeight)+'px');
+    document.documentElement.style.setProperty('--participant-top',(viewport?.offsetTop||0)+'px');
+  };
+  syncViewport();window.addEventListener('resize',syncViewport);
+  window.visualViewport?.addEventListener('resize',syncViewport);
+  window.visualViewport?.addEventListener('scroll',syncViewport);
+}
+const WORKSPACE_KEY=PREFIX+'workspace', SCENARIO_KEY=PREFIX+'scenario';
+let DATA_KEY=PREFIX+(isStudio?'studio':'participant');
+const blockedCareKeys=new Set();
 const STUDY_KEY = PREFIX + 'research';
 let storageIssue = '';
 let researchBlocked = false;
@@ -15,17 +30,20 @@ function writeStored(key, value) {
   try { localStorage.setItem(key, JSON.stringify(value)); return true; }
   catch { storageIssue = 'This browser cannot save changes. They last only while this page is open.'; showStorageIssue(); return false; }
 }
+function modeForKey(key){return key===PREFIX+'participant'?'personal':'study';}
 function loadCare(key) {
-  const data = readStored(key);
-  if (!data) return defaults();
-  try { return restore(data); }
-  catch { storageIssue = 'Saved prototype data was damaged. Fictional defaults are shown. Use the researcher reset to start over.'; return defaults(); }
+  const mode=modeForKey(key);let data;
+  try{const raw=localStorage.getItem(key);if(raw===null){blockedCareKeys.delete(key);return defaults(mode);}data=JSON.parse(raw);}
+  catch{blockedCareKeys.add(key);storageIssue='Saved care data could not be read. The original is kept; saving to this record store is blocked. Export a raw care backup in the studio.';return defaults(mode);}
+  try{const result=restore(data,mode);blockedCareKeys.delete(key);return result;}
+  catch{blockedCareKeys.add(key);storageIssue='Saved prototype data was damaged. The original is kept; saving to this record store is blocked. Export a raw care backup in the studio.';return defaults(mode);}
 }
+function participantKey(){return readStored(WORKSPACE_KEY)==='study'?SCENARIO_KEY:PREFIX+'participant';}
 function showStorageIssue() {
   const notice = document.querySelector('#storage-notice');
   if (notice) { notice.hidden = !storageIssue; notice.textContent = storageIssue; }
 }
-function saveCare() { writeStored(DATA_KEY, snapshot(state)); showStorageIssue(); }
+function saveCare() { if(!blockedCareKeys.has(DATA_KEY))writeStored(DATA_KEY,snapshot(state));showStorageIssue(); }
 function loadResearch() {
   researchBlocked=false;
   const r=readStored(STUDY_KEY);
@@ -84,7 +102,7 @@ const screens=[
  ['snooze','08','Postpone the reminder','Daily care','Large, separated time choices avoid a tiny time picker or precision slider.','One choice at a time','10, 20 or 30 minutes. Going back makes no change.','Clear meaning','Only the reminder is postponed. The prescribed medicine schedule is unchanged.'],
  ['postponed','09','Know what changed','Daily care','The chosen delay and original schedule are shown together after postponing.','State visibility','Confirmation appears in the schedule and Today too. A second postponement replaces the existing reminder.','Persistent correction','“Change reminder” remains available. No action depends on catching a toast message.'],
  ['history','10','A trustworthy record','Daily care','A plain activity record makes recent actions and corrections easy to inspect.','A record, not a score','Show what was recorded and corrected. Do not imply clinical adherence or infer actual ingestion.','Recovery later','The current recorded dose offers correction even after the success screen is closed.'],
- ['visits','11','The next appointment','Visits','Appointments are grouped by upcoming date with an explicit time and clinician name.','Readable dates','Write the weekday and month. Avoid ambiguous numeric dates and tiny calendar grids.','Limited scope','Viewing and reminder acknowledgement are core. Booking and rescheduling are outside this project.'],
+ ['visits','11','The next appointment','Visits','Appointments are grouped by upcoming date with an explicit time and clinician name.','Readable dates','Write the weekday and month. Avoid ambiguous numeric dates and tiny calendar grids.','Limited scope','Viewing and reminder acknowledgement are core. Fictional local records can be added, edited or deleted; no clinical booking integration exists.'],
  ['visit','12','All visit details together','Visits','Date, time, clinician and location appear in one structured, readable page.','No hidden essentials','The task can be completed without expanding several panels or reading a map.','Acknowledge accurately','Reminder preferences do not change or confirm a booking. Call support if help is needed.'],
  ['visitReminder','13','A useful appointment nudge','Visits','A reminder repeats the key visit details and allows a clear acknowledgement.','Specific feedback','“I’ve seen this” acknowledges the reminder; it does not claim attendance or booking confirmation.','Same details','The reminder and visit page use the same record, preventing conflicting times and locations.'],
  ['people','14','People before numbers','People','Saved contacts are presented with a name and relationship. The first trusted person is easy to locate.','Accessible urgency','Help is visible from the header without a hidden long press, complex gesture, or small floating action.','No accidental dialing','Selecting a contact opens their details. A distinct confirmation comes before the simulated call.'],
@@ -99,10 +117,26 @@ const screens=[
 ].map(a=>({id:a[0],code:'S'+a[1],title:a[2],group:a[3],summary:a[4],point1:a[5],detail1:a[6],point2:a[7],detail2:a[8]}));
 const byId=Object.fromEntries(screens.map(s=>[s.id,s]));
 byId.help={id:'help',code:'Help',title:'Help',group:'Comfort',summary:'Optional explanations and trusted people.',point1:'Short main screens',detail1:'Secondary explanations live here.',point2:'Visible support',detail2:'Trusted contacts remain one button away.'};
-let state = loadCare(DATA_KEY);
-Object.defineProperty(state, 'dose', { get() { return this.doses[this.selectedDose].status; }, set(status) { this.doses[this.selectedDose].status = status; }, configurable:true });
+for(const [id,title,group] of [['addmedicine','Add medicine','Daily care'],['medicinedetail','Medicine details','Daily care'],['editmedicine','Edit medicine','Daily care'],['archivemedicine','Archive medicine','Daily care'],['addappointment','Add appointment','Visits'],['editappointment','Edit appointment','Visits'],['deleteappointment','Delete appointment','Visits'],['addcontact','Add contact','People']])byId[id]={id,code:'Records',title,group,summary:'Manage fictional records locally.',point1:'Explicit saving',detail1:'Save or cancel. Existing history is retained.',point2:'Shared functionality',detail2:'The same actions are available in all conditions.'};
+if(!isStudio)DATA_KEY=participantKey();
+let state=loadCare(DATA_KEY);
 let stack=[],wire=false,atlasWire=false,atlasFilter='All',activeTask=null,studyResults=[],swipeStart=null;
+let renderedScreen=null;
 const groupRoot={Start:'home','Daily care':'meds',Visits:'visits',People:'people',Comfort:'home','Edge states':'home'};
+// These destinations work without the in-memory navigation stack, including
+// when a saved detail/form screen is opened directly or restored after refresh.
+const parentNavigation={
+  meds:['Back to Today','home'],visits:['Back to Today','home'],people:['Back to Today','home'],
+  visit:['Back to Visits','visits'],visitReminder:['Back to appointment','visit'],deleteappointment:['Back to Visits','visits'],
+  dose:['Back to Medicine','meds'],taken:['Back to Medicine','meds'],postponed:['Back to Medicine','meds'],medicinedetail:['Back to Medicine','meds'],
+  history:['Back to Medicine','meds'],snooze:['Back to Medicine','meds'],archivemedicine:['Back to Medicine','meds'],missed:['Back to Medicine','meds'],
+  addmedicine:['Cancel','meds'],editmedicine:['Cancel','medicinedetail'],
+  addappointment:['Cancel','visits'],editappointment:['Cancel','visit'],
+  contact:['Back to People','people'],addcontact:['Cancel','people'],editcontact:['Cancel','contact'],
+  call:['Back to People','people'],calling:['Back to People','people'],
+  settings:['Back to Today','home'],help:['Back to Today','home'],comfort:['Back to Welcome','welcome'],gesture:['Back to Settings','settings'],
+  empty:['Back to Visits','visits'],offline:['Back to Today','home']
+};
 function btn(label,action,cls='',ic=''){return '<button class="app-button '+cls+'" data-action="'+action+'">'+(ic?icon(ic):'')+label+'</button>';}
 function jump(label,target,cls='',ic=''){return btn(label,'go:'+target,cls,ic);}
 function read(text){return '<button class="read-btn" data-speak="'+esc(text)+'">'+icon('audio')+'Read aloud</button>';}
@@ -115,16 +149,19 @@ function content(id){return renderScreen(id,state,{esc,icon,btn,jump,badge,detai
 function formatTime(value){return value?new Date(value).toLocaleString('en-GB',{day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}):'Not recorded';}
 function appHTML(id){
 const s=byId[id],section=id==='home'?'home':groupRoot[s.group];
-let left=id==='home'||id==='welcome'?'<span class="mini-brand">saha</span>':'<button class="app-top-btn" data-action="back">'+icon('back')+'Back</button>';
+const parent=parentNavigation[id];
+let left=id==='home'||id==='welcome'?'<span class="mini-brand">saha</span>':parent?'<button class="app-top-btn" data-action="go:'+parent[1]+'">'+icon(parent[0]==='Cancel'?'close':'back')+parent[0]+'</button>':'<button class="app-top-btn" data-action="back">'+icon('back')+'Back</button>';
 let right='<div class="app-top-right"><button class="app-top-btn" data-action="go:help">'+icon('info')+'Help</button><button class="app-top-btn settings-top" aria-label="Comfort settings" data-action="go:settings">'+icon('sliders')+'Settings</button></div>';
-return '<div class="app-top">'+left+right+'</div><div id="screen-content" class="app-body" tabindex="-1">'+content(id)+'<button class="read-btn" data-speak-screen>'+icon('audio')+'Read aloud</button><div id="foreground-reminders" aria-live="polite"></div></div><nav class="app-nav" aria-label="Main app sections">'+[['home','home','Today'],['meds','pill','Medicine'],['visits','calendar','Visits'],['people','people','People']].map(a=>'<button data-action="nav:'+a[0]+'" class="'+(section===a[0]?'active':'')+'" '+(section===a[0]?'aria-current="page"':'')+'>'+icon(a[1])+'<span>'+a[2]+'</span></button>').join('')+'</nav>';
+return '<header class="app-top app-column">'+right+'<div class="app-return">'+left+'</div></header><div id="screen-content" class="app-body app-column" tabindex="-1">'+(state.recordsMode==='study'?'<p class="record-mode">Study sample records</p>':'')+content(id)+'<button class="read-btn" data-speak-screen>'+icon('audio')+'Read aloud</button><div id="foreground-reminders" aria-live="polite"></div></div><nav class="app-nav" aria-label="Main app sections">'+[['home','home','Today'],['meds','pill','Medicine'],['visits','calendar','Visits'],['people','people','People']].map(a=>'<button data-action="nav:'+a[0]+'" class="'+(section===a[0]?'active':'')+'" '+(section===a[0]?'aria-current="page"':'')+'>'+icon(a[1])+'<span>'+a[2]+'</span></button>').join('')+'</nav>';
 }
 function applyPhoneClasses(el,opts={}){
 const cls=['phone',opts.mini?'mini-device':'',wire&&!opts.mini||opts.mini&&atlasWire?'wireframe':'',state.condition==='A'&&!opts.mini?'baseline':'',(opts.mini||state.condition!=='A')&&state.size==='large'?'large-text':(opts.mini||state.condition!=='A')&&state.size==='largest'?'largest-text':'',(opts.mini||state.condition!=='A')&&state.contrast?'high-contrast':'',(opts.mini||state.condition!=='A')&&state.roomy?'roomy':''].filter(Boolean).join(' ');
 el.className=cls;
 }
 function render(focus=false){
+  ensureOccurrences(state);
   if (!byId[state.screen]) state.screen='home';
+  const changed=renderedScreen!==state.screen,previousScroll=$('#app .app-body')?.scrollTop||0;
   applyPhoneClasses($('#phone')); $('#app').innerHTML=appHTML(state.screen);
   if(isStudio){
     const s=byId[state.screen];$('#screen-code').textContent=s.code;$('#screen-title').textContent=s.title;
@@ -136,27 +173,33 @@ function render(focus=false){
     $$('.screen-jump').forEach(b=>b.classList.toggle('active',b.dataset.target===state.screen));
   }
   $('#app').classList.toggle('no-motion',window.matchMedia('(prefers-reduced-motion: reduce)').matches);
-  if (activeTask) $$('#app [data-pref]:not([data-pref="visitReminder"]), #app [data-action^="size:"], #app [data-action="tryGesture"], #app [data-action="preferButtons"]').forEach(el=>el.disabled=true);
+  if (activeTask && state.recordsMode==='study') $$('#app [data-pref]:not([data-pref="visitReminder"]), #app [data-action^="size:"], #app [data-action="tryGesture"], #app [data-action="preferButtons"]').forEach(el=>el.disabled=true);
   document.title='Saha — '+byId[state.screen].title+(isStudio?' · Studio':'');
-  if(focus) $('#app .app-body').focus({preventScroll:true});
+  const body=$('#app .app-body');
+  body.scrollTop=changed||focus?0:previousScroll;
+  if((!isStudio||state.view==='prototype')&&(focus||(changed&&renderedScreen!==null)))body.focus({preventScroll:true});
+  renderedScreen=state.screen;
   updateForegroundReminders();
   saveCare();
 }
 function updateForegroundReminders(){
+  if(ensureOccurrences(state)){render();return;}
   const region=$('#app #foreground-reminders');if(!region)return;
-  const due=MEDICINES.filter(m=>state.doses[m.id].status==='postponed'&&Date.parse(state.doses[m.id].remindAt)<=Date.now());
-  const html=due.map(m=>'<div class="app-note">'+m.name+' reminder is ready. Original schedule: '+m.time+'.'+btn('Review '+m.name+' reminder','medicine:'+m.id,'secondary','bell')+'</div>').join('');
+  const due=dueReminders(state);
+  const html=due.medicines.map(o=>'<div class="app-note">'+esc(o.name)+' reminder is ready. Scheduled: '+esc(dayLabel(o.date))+' / '+timeLabel(o.time)+'.'+btn('Review '+esc(o.name)+' reminder','occurrence:'+o.id,'secondary','bell')+'</div>').join('')+
+    due.appointments.map(a=>'<div class="app-note">Appointment reminder: '+esc(a.clinician)+'.'+btn('Review appointment','appointmentReminder:'+a.id,'secondary','calendar')+'</div>').join('');
   if(region.innerHTML!==html)region.innerHTML=html;
 }
 function go(id,source='button',replace=false){
 if(!byId[id])return;
 if(!replace&&state.screen!==id)stack.push(state.screen);
-$('#toast').classList.remove('visible');state.screen=id;if(id==='home')state.onboarded=true;state.saved=false;state.formError='';state.contactDraft=null;
+$('#toast').classList.remove('visible');state.screen=id;if(id==='home')state.onboarded=true;state.saved=false;state.formError='';state.draft=null;
 log('navigation',{to:id,source});render(true);checkTask(id);
 }
-function goBack(){let next=stack.pop();if(!next||next===state.screen)next=groupRoot[byId[state.screen].group]||'home';if(next===state.screen)next='home';state.screen=next;log('back',{to:next});state.formError='';state.contactDraft=null;render(true);}
+function goBack(){let next=stack.pop();if(!next||next===state.screen)next=groupRoot[byId[state.screen].group]||'home';if(next===state.screen)next='home';state.screen=next;log('back',{to:next});state.formError='';state.draft=null;render(true);}
 function toast(text){$('#toast').textContent=text;$('#toast').classList.add('visible');}
 function log(type,data={}){
+  if(!isStudio&&state.recordsMode!=='study')return;
   research=loadResearch();if(researchBlocked)return;
   if(!isStudio && research.active?.phase==='running' && (type==='navigation'||type==='back')){const method=data.source==='swipe'?'swipes':'buttons';research.active.navigation[method]++;}
   const taskConfig=research.active?.config||preferences(state),condition=research.active?.condition||state.condition;
@@ -174,22 +217,27 @@ function speak(text){
 function setView(view){if(!['prototype','atlas','flows','system','study'].includes(view))view='prototype';state.view=view;$$('.studio-view').forEach(n=>n.hidden=n.id!=='view-'+view);$$('[data-view]').forEach(b=>b.classList.toggle('active',b.dataset.view===view));if(view==='atlas')renderAtlas();if(view==='study')renderStudy();history.replaceState(null,'','#'+view);window.scrollTo({top:0,behavior:'instant'});}
 function resetDemo(){
   const kept={condition:state.condition,...preferences(state)};
-  Object.assign(state,defaults(),kept,{screen:'home'});stack=[];render();
+  Object.assign(state,defaults('study'),kept,{screen:'home'});stack=[];render();
 }
 function handle(action,el){
 let [a,v]=action.split(':');
 if(a==='go'){go(v);return;}if(a==='nav'){stack=[];go(v,'button',true);return;}
 if(a==='back'){goBack();return;}
-if(activeTask&&['size','preferButtons','tryGesture'].includes(a))return;
+if(activeTask&&state.recordsMode==='study'&&['size','preferButtons','tryGesture'].includes(a))return;
 if(a==='size'){state.size=v;log('preference',{key:'size',value:v});render();$('#app [data-action="size:'+v+'"]')?.focus({preventScroll:true});return;}
-if(a==='medicine'||a==='reminder'){if(!['A','B'].includes(v))return;state.selectedDose=v;go(state.dose==='taken'?'history':a==='reminder'?'postponed':'dose');return;}
-if(a==='take'){if(changeMedicine(state,'taken')){log('taken',{doseId:state.selectedDose});go('taken');}return;}
-if(a==='correct'){state.selectedDose=v;handle('undo');return;}
-if(a==='undo'){if(changeMedicine(state,'undo')){log('undo',{doseId:state.selectedDose});go('history');toast('Record corrected.');}return;}
-if(a==='snooze'){if(changeMedicine(state,'postponed',Number(v))){log('postponed',{doseId:state.selectedDose,delay:Number(v)});go('postponed');}return;}
-if(a==='person'){state.selectedContact=Number(v);go('contact');return;}
+if(a==='medicine'||a==='reminder'){if(!selectMedicine(state,v))return;go(selectedOccurrence(state).status==='taken'?'history':a==='reminder'?'postponed':'dose');return;}
+if(a==='occurrence'){const o=state.occurrences[v];if(!o)return;state.selectedMedicineId=o.medicineId;state.selectedOccurrenceId=o.id;go(o.status==='taken'?'history':'dose');return;}
+if(a==='take'){if(changeMedicine(state,'taken')){log('taken',{doseId:state.selectedMedicineId,occurrenceId:state.selectedOccurrenceId});go('taken');}return;}
+if(a==='correct'){const o=state.occurrences[v];if(!o)return;state.selectedMedicineId=o.medicineId;state.selectedOccurrenceId=o.id;handle('undo');return;}
+if(a==='undo'){if(changeMedicine(state,'undo')){log('undo',{doseId:state.selectedMedicineId,occurrenceId:state.selectedOccurrenceId});go('history');toast('Record corrected.');}return;}
+if(a==='snooze'){if(changeMedicine(state,'postponed',Number(v))){log('postponed',{doseId:state.selectedMedicineId,occurrenceId:state.selectedOccurrenceId,delay:Number(v)});go('postponed');}return;}
+if(a==='editmedicine'){state.selectedMedicineId=v;go('editmedicine');return;}
+if(a==='confirmArchive'){if(archiveMedicine(state,state.selectedMedicineId)){log('medicine_archived');go('meds');}return;}
+if(a==='appointment'||a==='appointmentReminder'){if(!state.appointments.some(x=>x.id===v))return;state.selectedAppointmentId=v;go(a==='appointment'?'visit':'visitReminder');return;}
+if(a==='confirmDeleteAppointment'){if(deleteAppointment(state,state.selectedAppointmentId)){log('appointment_deleted');go('visits');}return;}
+if(a==='person'){const c=state.contacts[Number(v)];if(!c)return;state.selectedContactId=c.id;go('contact');return;}
 if(a==='endCall'){log('call_preview_ended');go('contact');return;}
-if(a==='seen'){state.visitSeen=true;log('visit_reminder_acknowledged');go('visit');return;}
+if(a==='seen'){const visit=selectedAppointment(state);if(!visit)return;visit.acknowledgedReminderAt=appointmentReminderAt(visit);log('visit_reminder_acknowledged');go('visit');return;}
 if(a==='savePrefs'){log('preferences_saved');go('home');return;}
 if(a==='preferButtons'){state.gestures=false;log('gesture_preference',{enabled:false});go('home');return;}
 if(a==='tryGesture'){if(activeTask&&state.condition!=='C'){toast('Gesture practice is available in configuration C.');return;}if(state.condition!=='C')return;state.gestures=true;go('home');toast('Swipe left across the main screen to open Medicine. Buttons work too.');return;}
@@ -205,23 +253,30 @@ const start=e.target.closest('[data-start-task]');if(start){startTask(start.data
 const result=e.target.closest('[data-task-result]');if(result){finishTask(result.dataset.taskResult);return;}
 const scenario=e.target.closest('[data-scenario]');if(scenario){applyScenario(scenario.dataset.scenario);return;}
 });
-document.addEventListener('change',e=>{const key=e.target.dataset.pref;if(!['contrast','roomy','gestures','visitReminder'].includes(key)||(activeTask&&key!=='visitReminder'))return;state[key]=e.target.checked;log('preference',{key,value:state[key]});render();$('#app [data-pref="'+key+'"]')?.focus({preventScroll:false});});
+document.addEventListener('change',e=>{const key=e.target.dataset.pref;if(!['contrast','roomy','gestures'].includes(key)||(activeTask&&state.recordsMode==='study'))return;state[key]=e.target.checked;log('preference',{key,value:state[key]});render();$('#app [data-pref="'+key+'"]')?.focus({preventScroll:false});});
 document.addEventListener('submit',e=>{
-  if(e.target.id!=='contact-form')return;e.preventDefault();
-  const f=new FormData(e.target),draft={name:String(f.get('name')).trim(),relation:String(f.get('relation')).trim(),number:String(f.get('number')).trim()};
-  if(!validContact(draft)){
-    state.contactDraft=draft;state.formError='Enter a name, relationship and phone number (7 to 15 digits). Use digits, spaces, (), - or a starting +.';
-    render();const invalid=!draft.name?'name':!draft.relation?'relation':'number';
-    const field=$('#contact-'+invalid);field.setAttribute('aria-invalid','true');field.setAttribute('aria-describedby','form-error');field.focus();return;
+  const kind=e.target.id.replace('-form','');if(!['contact','medicine','appointment'].includes(kind))return;e.preventDefault();
+  const draft=Object.fromEntries(new FormData(e.target)),editing=state.screen==='edit'+kind;
+  try{
+    if(kind==='medicine')saveMedicine(state,draft,editing?state.selectedMedicineId:null);
+    if(kind==='appointment')saveAppointment(state,draft,editing?state.selectedAppointmentId:null);
+    if(kind==='contact')saveContact(state,draft,editing?state.selectedContactId:null);
+    log(kind+'_saved');go({medicine:'medicinedetail',appointment:'visit',contact:'contact'}[kind]);
+  }catch(error){
+    state.draft=draft;state.formError=error.message;render();
+    let invalid;
+    if(kind==='contact')invalid=!draft.name?.trim()?'name':!draft.relation?.trim()?'relation':'number';
+    if(kind==='medicine')invalid=!draft.name?.trim()?'name':'time';
+    if(kind==='appointment')invalid=!draft.clinician?.trim()?'clinician':!validDay(draft.date)?'date':!validTime(draft.time)?'time':!draft.location?.trim()?'location':'reminder';
+    const field=$('#record-'+invalid);field?.setAttribute('aria-invalid','true');field?.focus();
   }
-  state[state.selectedContact===1?'otherContact':'contact']=draft;log('contact_saved');go('contact');
 });
 if(isStudio){
 $('#condition').addEventListener('change',e=>{if(activeTask){toast('Finish or stop the current task before changing condition.');e.target.value=state.condition;return;}state.condition=e.target.value;log('condition_changed');stack=[];render();});
 $('#polished-btn').onclick=()=>setWire(false);$('#wire-btn').onclick=()=>setWire(true);
 function setWire(value){wire=value;$('#polished-btn').classList.toggle('active',!wire);$('#polished-btn').setAttribute('aria-pressed',!wire);$('#wire-btn').classList.toggle('active',wire);$('#wire-btn').setAttribute('aria-pressed',wire);render();}
 $('#reset-btn').onclick=()=>{setView('study');toast('Use the reviewed reset controls below. Participant replacement is separate from studio scenarios.');};
-$('#show-reminder').onclick=()=>{if(state.dose==='taken'){toast('This dose is already recorded. Reset the demo to try a fresh reminder.');go('history');}else go('dose','studio');};
+$('#show-reminder').onclick=()=>{if(selectedOccurrence(state)?.status==='taken'){toast('This dose is already recorded. Reset the demo to try a fresh reminder.');go('history');}else go('dose','studio');};
 $('#present-btn').onclick=()=>{document.body.classList.add('focus-mode');setView('prototype');let exit=document.createElement('button');exit.className='outline-btn exit-focus';exit.id='exit-focus';exit.textContent='Exit app focus';exit.onclick=()=>{document.body.classList.remove('focus-mode');exit.remove();};document.body.append(exit);};
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&document.body.classList.contains('focus-mode'))$('#exit-focus')?.click();});
 }
@@ -243,23 +298,22 @@ $('#app').addEventListener('pointerup',e=>{
 function openStudioScreen(id){
   if(activeTask){toast('Use the participant window during a timed task.');return;}
   if(id==='taken')changeMedicine(state,'taken');
-  if(id==='postponed'){if(state.dose==='taken')changeMedicine(state,'undo');changeMedicine(state,'postponed',10);}
-  if(id==='missed'&&state.dose==='taken')changeMedicine(state,'undo');
+  if(id==='postponed'){if(selectedOccurrence(state)?.status==='taken')changeMedicine(state,'undo');changeMedicine(state,'postponed',10);}
+  if(id==='missed'&&selectedOccurrence(state)?.status==='taken')changeMedicine(state,'undo');
   state.emptyVisits=id==='empty';state.offline=id==='offline';go(id,'studio');setView('prototype');
 }
 function renderNavigator(){const selected=['welcome','comfort','gesture','home','meds','dose','taken','snooze','visits','visit','people','settings'];let last='';$('#screen-list').innerHTML=selected.map(id=>{const s=byId[id],label=s.group!==last?'<div class="screen-group-label">'+s.group+'</div>':'';last=s.group;return label+'<button class="screen-jump '+(state.screen===id?'active':'')+'" data-target="'+id+'"><span class="jump-num">'+s.code.slice(1)+'</span>'+({welcome:'Welcome',comfort:'Comfort setup',gesture:'Gesture practice',home:'Today',meds:'Medicine schedule',dose:'Reminder',taken:'Recorded & undo',snooze:'Remind me later',visits:'Upcoming visits',visit:'Visit details',people:'Trusted people',settings:'Comfort settings'}[id])+'</button>';}).join('');}
 function renderAtlas(){
 $('#atlas-filters').innerHTML=['All','Start','Daily care','Visits','People','Comfort','Edge states'].map(g=>'<button data-filter="'+g+'" class="'+(atlasFilter===g?'active':'')+'">'+g+'</button>').join('');
 $('#atlas-wire-btn').textContent=atlasWire?'Show visual designs':'Show wireframes';
-const original={doses:structuredClone(state.doses),selectedDose:state.selectedDose,events:state.events,emptyVisits:state.emptyVisits,offline:state.offline};state.emptyVisits=false;state.offline=false;state.selectedDose='A';
+const original=state;
 $('#atlas-grid').innerHTML=screens.filter(s=>atlasFilter==='All'||s.group===atlasFilter).map(s=>{
-state.doses=defaults().doses;
-if(['taken','history'].includes(s.id))state.doses.A={status:'taken',takenAt:'2026-10-25T04:02:00Z'};
-if(s.id==='postponed')state.doses.A={status:'postponed',delay:10,remindAt:'2026-10-25T04:10:00Z'};
-state.events=s.id==='history'?[{type:'taken',doseId:'A',label:'Medicine A marked taken',time:'2026-10-25T04:02:00Z'}]:[];
-return '<article class="atlas-card"><div class="atlas-card-title">'+s.title+'<span>'+s.code+'</span></div><div class="mini-device-wrap" inert aria-hidden="true"><div class="phone mini-device '+(atlasWire?'wireframe':'')+'"><div class="phone-status"><span>9:00</span><div class="phone-island"></div><span>● ▰</span></div><div class="app-shell">'+appHTML(s.id).replace(/id="/g,'id="atlas-'+s.id+'-').replace(/for="/g,'for="atlas-'+s.id+'-')+'</div><div class="home-indicator"></div></div></div><p>'+s.summary+'</p><button class="atlas-open" data-target="'+s.id+'">Open interactive screen '+icon('right')+'</button></article>';
+state={...defaults('study'),...preferences(original),condition:original.condition};
+if(['taken','history'].includes(s.id))changeMedicine(state,'taken');
+if(s.id==='postponed')changeMedicine(state,'postponed',10);
+return '<article class="atlas-card"><div class="atlas-card-title">'+s.title+'<span>'+s.code+'</span></div><div class="mini-device-wrap" inert aria-hidden="true"><div class="phone mini-device '+(atlasWire?'wireframe':'')+'"><div class="phone-status"><span>9:00</span><div class="phone-island"></div></div><div class="app-shell">'+appHTML(s.id).replace(/id="/g,'id="atlas-'+s.id+'-').replace(/for="/g,'for="atlas-'+s.id+'-')+'</div><div class="home-indicator"></div></div></div><p>'+s.summary+'</p><button class="atlas-open" data-target="'+s.id+'">Open interactive screen '+icon('right')+'</button></article>';
 }).join('');
-Object.assign(state,original);
+state=original;
 }
 if(isStudio)$('#atlas-wire-btn').onclick=()=>{atlasWire=!atlasWire;renderAtlas();};
 function flowStep(id,label){return '<div class="flow-step"><button data-target="'+id+'"><small>'+byId[id].code+'</small>'+label+'</button><span class="flow-arrow" aria-hidden="true">→</span></div>';}
@@ -277,7 +331,7 @@ function renderSystem(){$('#system-content').innerHTML=
 '<article class="content-card" style="margin-top:22px"><h3>The interface contract</h3><table class="spec-table"><thead><tr><th>ELEMENT</th><th>SPECIFICATION</th><th>REASON</th></tr></thead><tbody><tr><td>Patient text</td><td>19 px default; 22 px and 25 px options, relative sizing for labels</td><td>Visible hierarchy and user-controlled enlargement; scroll rather than clipping</td></tr><tr><td>Primary actions</td><td>56 px minimum height; 66 px with roomier controls</td><td>Less precision required; substantial space between actions</td></tr><tr><td>Top controls</td><td>44 px minimum height, labeled Back and Help</td><td>Stable, reachable escape and support routes</td></tr><tr><td>Navigation</td><td>Four fixed labeled sections, single level</td><td>Recognition and predictable section order</td></tr><tr><td>Confirmation</td><td>Full persistent result; correction route in record</td><td>No reliance on a fleeting toast</td></tr><tr><td>Gesture rule</td><td>Left/right only on main-section content; buttons remain</td><td>A shortcut that does not become a requirement</td></tr><tr><td>Read aloud</td><td>Explicit Read aloud control; no autoplay</td><td>Support without forcing audio or assuming privacy</td></tr><tr><td>Motor support</td><td>Separated actions, rare typing, no long press or drag requirement</td><td>Reduce dependence on fine dexterity</td></tr><tr><td>Contrast</td><td>Dark text, strong-contrast option; no colour-only states</td><td>Legible content across visual preferences</td></tr><tr><td>Motion</td><td>No decorative loops; respects reduced-motion preference</td><td>A stable experience without attention competition</td></tr></tbody></table><p>These are design targets, not a claim of WCAG conformance or validated usability. Verify computed contrast, text reflow, focus, and real-device touch use before the participant study.</p></article>'+
 '<article class="content-card"><h3>Study versions, without three separate apps</h3><table class="spec-table"><thead><tr><th>A / CONVENTIONAL</th><th>B / ACCESSIBLE BUTTONS</th><th>C / OPTIONAL GESTURES</th></tr></thead><tbody><tr><td>16 px base text<br>44 px primary action height<br>Conventional visual density<br>Buttons for navigation</td><td>19–25 px chosen text<br>56–66 px primary actions<br>Generous grouping and contrast<br>Buttons for navigation</td><td>Exactly B’s chosen settings<br>Exactly B’s content and controls<br>Optional main-section swipes<br>No gesture-only action</td></tr></tbody></table><p>A versus B evaluates the accessible package. B versus C evaluates gesture availability. Keep B and C preferences identical and distribute condition order. This baseline currently shares the navigation structure, so it does not isolate navigation simplification as a separate factor.</p></article>'+
 '<article class="content-card"><h3>What we borrowed, and what we changed</h3><p>Official product documentation informed interaction patterns. The screens are original designs for this project, not reproductions or endorsements.</p><div class="references"><a class="reference" target="_blank" rel="noopener" href="https://support.apple.com/en-ie/105064"><strong>Apple Health</strong><p>Clear medication reminders, dose logging, and access to a record. Saha reduces the journey to one readable decision.</p><span>Medication documentation ↗</span></a><a class="reference" target="_blank" rel="noopener" href="https://medisafe.com/download-the-app"><strong>Medisafe</strong><p>Trusted-person support as a companion to independence. Saha keeps this to saved contacts; no monitoring or sharing is implemented.</p><span>Official app overview ↗</span></a><a class="reference" target="_blank" rel="noopener" href="https://www.mychart.org/l/en-us/explore/"><strong>MyChart</strong><p>Structured upcoming visits and visit details. Saha leaves out booking, records integration, billing and clinical messaging.</p><span>Official feature overview ↗</span></a></div></article>'+
-'<article class="content-card"><h3>Build scope & honest boundaries</h3><table class="spec-table"><thead><tr><th>WORKS IN THIS PROTOTYPE</th><th>REQUIRES LATER IMPLEMENTATION</th></tr></thead><tbody><tr><td>Screen flows and actual state changes<br>Taken, postpone and correction records<br>Visit details and acknowledgement<br>Contact review, edit and validation<br>Text, contrast, spacing, optional swipe<br>Browser-supported read aloud<br>Local study events and CSV export</td><td>Reliable scheduled system notifications<br>Native calling and emergency integration<br>Authentication and real health records<br>Caregiver invitations and shared access<br>Encrypted durable storage and sync<br>Clinically verified medicine schedules<br>Validated translations and localization</td></tr></tbody></table><p>Fictional care state and preferences are stored locally in namespaced browser storage. Studio scenarios are separate from participant care data. Study tasks run in the participant window. Exports include build and selected settings. The offline screen is a scenario, not a tested offline-installable app. No automatic adaptation, diagnoses, or treatment decisions are included.</p></article>';}
+'<article class="content-card"><h3>Build scope & honest boundaries</h3><table class="spec-table"><thead><tr><th>WORKS IN THIS PROTOTYPE</th><th>REQUIRES LATER IMPLEMENTATION</th></tr></thead><tbody><tr><td>Screen flows and actual state changes<br>Taken, postpone and correction records<br>Visit details and acknowledgement<br>Medicine, appointment and contact forms<br>Archive with occurrence history<br>Contact add, edit and validation<br>Text, contrast, spacing, optional swipe<br>Browser-supported read aloud<br>Local study events and CSV export</td><td>Reliable scheduled system notifications<br>Native calling and emergency integration<br>Authentication and real health records<br>Caregiver invitations and shared access<br>Encrypted durable storage and sync<br>Clinically verified medicine schedules<br>Validated translations and localization</td></tr></tbody></table><p>Fictional care state and preferences are stored locally in namespaced browser storage. Studio scenarios are separate from participant care data. Study tasks run in the participant window. Exports include build and selected settings. The offline screen is a scenario, not a tested offline-installable app. No automatic adaptation, diagnoses, or treatment decisions are included.</p></article>';}
 const tasks=[
 {id:'dose',title:'Record taken',instruction:'The scenario says you have already taken Medicine A, scheduled for 9:00 am. Record this in Saha.',start:'home',end:'taken'},
 {id:'later',title:'Postpone reminder',instruction:'Set the Medicine A reminder for 20 minutes from now. Do not record it as taken.',start:'dose',end:'postponed'},
@@ -296,14 +350,14 @@ function renderStudy(){
   const active=a?'<article class="study-active"><h3>'+esc(tasks.find(t=>t.id===a.taskId).title)+'</h3><p>'+esc(tasks.find(t=>t.id===a.taskId).instruction)+'</p><p>Participant '+esc(a.participantCode)+' / '+a.condition+' / '+a.phase+'</p>'+
     (a.phase==='ready'?'<p>Scenario prepared. Read the instruction, then start the timer and say Begin.</p><button class="study-button" id="begin-timer">Start timer</button>':a.phase==='running'?'<p>Timer running. Assess comprehension separately from navigation.</p><button class="study-button" id="stop-timer">Stop timer and review</button>':'<p>Timer stopped. '+(a.destinationReached?'Interface destination reached. Verify the task outcome.':'Researcher stopped the attempt.')+'</p>')+
     '<div class="study-actions">'+(a.phase!=='ready'?'<button class="study-button" data-task-result="completed">Save unassisted completion</button><button class="study-button secondary" data-task-result="assisted">Save assisted completion</button>':'')+'<button class="study-button secondary" data-task-result="failed">Save failed / stopped attempt</button><button class="study-button secondary" id="help-event">Help +1</button><button class="study-button secondary" id="error-event">Error +1</button><button class="study-button secondary" id="open-participant">Open participant window</button></div></article>':'';
-  const pending=pendingTaskId?'<div class="review-warning"><h3>Replace participant scenario?</h3><p>This replaces saved medicines, contacts, acknowledgement and screen at /. The session?s frozen comfort settings will be applied. Earlier study results and events are kept. Timer will remain stopped until you press Start timer.</p><button class="study-button" id="confirm-prepare">Replace scenario and prepare task</button><button class="study-button secondary" id="cancel-prepare">Cancel replacement</button></div>':'';
+  const pending=pendingTaskId?'<div class="review-warning"><h3>Replace participant scenario?</h3><p>This replaces only the study sample records at /. Personal records are kept in their separate store. The frozen comfort settings will be applied. Earlier study results and events are kept. Timer will remain stopped until you press Start timer.</p><button class="study-button" id="confirm-prepare">Replace scenario and prepare task</button><button class="study-button secondary" id="cancel-prepare">Cancel replacement</button></div>':'';
   $('#study-content').innerHTML=warning+active+
     '<article class="content-card"><h3>Participant session</h3><p>Use a participant code, never a name. Set comfort choices in the prototype before creating the session. New sessions keep all earlier results. Settings are frozen for every task in this session, including matched B/C trials.</p>'+
     (session?'<p><strong>Current: '+esc(session.participantCode)+'</strong> / order '+esc(session.conditionOrder)+' / session '+esc(session.id)+'</p><p>Frozen settings: '+esc(JSON.stringify(session.config))+'</p>':'<p>No coded session selected. Earlier unassigned records remain available for export.</p>')+
     '<form id="session-form" class="research-form"><label>Participant code<input name="participantCode" id="participant-code" maxlength="20" required placeholder="P01"></label><label>Condition order<select name="conditionOrder" id="condition-order">'+['ABC','ACB','BAC','BCA','CAB','CBA'].map(o=>'<option>'+o+'</option>').join('')+'</select></label><button class="study-button" '+(a||researchBlocked?'disabled':'')+'>Create new coded session</button></form><p id="session-error" role="alert"></p></article>'+
     '<div class="study-metrics"><div class="metric"><span>All saved attempts</span><strong>'+studyResults.length+'</strong></div><div class="metric"><span>Current session attempts</span><strong>'+studyResults.filter(r=>r.sessionId===research.currentSessionId).length+'</strong></div><div class="metric"><span>Build</span><strong style="font:14px var(--sans)">'+BUILD+'</strong></div></div>'+
-    '<article class="content-card"><h3>Prepare, instruct, then time</h3><p>Select A/B/C in the prototype outside an active task. Prepare explicitly replaces the participant scenario. Only the separate / window is shown to the participant. Automatic stopping captures interface arrival for four tasks; researcher assessment is still required. Appointment timing stops manually after the spoken answer. Record errors/help here and notes in the observation sheet.</p>'+pending+tasks.map(t=>'<div class="study-task"><div><strong>'+esc(t.title)+'</strong><p>'+esc(t.instruction)+'</p></div><button class="study-button" data-start-task="'+t.id+'" '+(a||!session||researchBlocked?'disabled':'')+'>Prepare task</button></div>').join('')+'</article>'+
-    '<article class="content-card"><h3>Studio scenarios</h3><p>These replace the studio preview only, preserving participant care and all study results.</p><div class="study-actions">'+[['pending','Fresh reminder'],['missed','Not recorded'],['visitReminder','Visit reminder'],['empty','Empty visits'],['offline','Offline design scenario']].map(([id,label])=>'<button class="study-button secondary" data-scenario="'+id+'">'+label+'</button>').join('')+'</div></article>'+
+    '<article class="content-card"><h3>Prepare, instruct, then time</h3><p>Select A/B/C in the prototype outside an active task. Prepare replaces only the separate study scenario, never personal records. Only the separate / window is shown to the participant. Automatic stopping captures interface arrival for four tasks; researcher assessment is still required. Appointment timing stops manually after the spoken answer. Record errors/help here and notes in the observation sheet.</p>'+pending+tasks.map(t=>'<div class="study-task"><div><strong>'+esc(t.title)+'</strong><p>'+esc(t.instruction)+'</p></div><button class="study-button" data-start-task="'+t.id+'" '+(a||!session||researchBlocked?'disabled':'')+'>Prepare task</button></div>').join('')+'</article>'+
+    '<article class="content-card"><h3>Studio scenarios</h3><button class="study-button secondary" id="open-personal">Open personal records</button><button class="study-button secondary" id="export-care">Export raw care backup</button><p>These replace the studio preview only, preserving participant care and all study results.</p><div class="study-actions">'+[['pending','Fresh reminder'],['missed','Not recorded'],['visitReminder','Visit reminder'],['empty','Empty visits'],['offline','Offline design scenario']].map(([id,label])=>'<button class="study-button secondary" data-scenario="'+id+'">'+label+'</button>').join('')+'</div></article>'+
     '<article class="content-card"><h3>Export and retain sessions</h3><label for="export-session">Session to export</label><select id="export-session"><option value="__unassigned">Unassigned events</option>'+research.sessions.map(s=>'<option value="'+esc(s.id)+'" '+(s.id===exportSessionId?'selected':'')+'>'+esc(s.participantCode)+' / '+esc(s.id)+'</option>').join('')+'</select><div class="study-actions"><button class="study-button" id="export-results">Export session task CSV</button><button class="study-button secondary" id="export-events">Export session event JSON</button><button class="study-button secondary" id="export-all">Export all sessions JSON</button><button class="study-button secondary" id="export-raw">Export raw saved backup</button></div><p>Exports include session/participant code, order, build, condition, selected settings and effective gesture availability. CSV keeps assisted and failed attempts. Downloads are not automatically imported or synchronized.</p>'+
     (studyResults.length?'<table class="spec-table"><thead><tr><th>CODE / CONDITION</th><th>TASK</th><th>SECONDS</th><th>OUTCOME</th></tr></thead><tbody>'+studyResults.map(r=>'<tr><td>'+esc(r.participantCode||'UNASSIGNED')+' / '+r.condition+'</td><td>'+esc(r.task)+'</td><td>'+r.seconds.toFixed(1)+'</td><td>'+r.result+'</td></tr>').join('')+'</tbody></table>':'<p>No saved attempts.</p>')+'</article>'+resetControls();
   $('#session-form').onsubmit=e=>{
@@ -326,14 +380,17 @@ function renderStudy(){
   if($('#open-participant'))$('#open-participant').onclick=openParticipant;
   if($('#confirm-prepare'))$('#confirm-prepare').onclick=prepareTask;
   if($('#cancel-prepare'))$('#cancel-prepare').onclick=()=>{pendingTaskId=null;renderStudy();};
+  $('#open-personal').onclick=()=>{if(loadResearch().active){toast('Save or stop the active task first.');return;}writeStored(WORKSPACE_KEY,'personal');openParticipant();};
+  $('#export-care').onclick=()=>{try{const backup=Object.fromEntries(['participant','scenario','studio'].map(k=>[k,localStorage.getItem(PREFIX+k)]));download('saha-raw-care-backup.json',JSON.stringify(backup,null,2),'application/json');}catch{toast('Browser storage could not be read.');}};
   bindReset();showStorageIssue();
 }
 function openParticipant(){const win=window.open('/','saha-participant');if(!win)toast('Open '+location.origin+'/ in a separate participant window.');}
 function startTask(id){research=loadResearch();if(researchBlocked||research.active||!currentSession())return;pendingTaskId=id;renderStudy();$('#confirm-prepare').focus();}
 function prepareTask(){
   research=loadResearch();const session=currentSession(),task=tasks.find(t=>t.id===pendingTaskId);if(researchBlocked||research.active||!session||!task)return;
-  const participant={...defaults(),...session.config,condition:state.condition,screen:task.start,onboarded:true};
-  if(!writeStored(PREFIX+'participant',snapshot(participant)))return;
+  const participant={...defaults('study'),...session.config,condition:state.condition,screen:task.start,onboarded:true};
+  if(!writeStored(SCENARIO_KEY,snapshot(participant)))return;
+  blockedCareKeys.delete(SCENARIO_KEY);if(!writeStored(WORKSPACE_KEY,'study'))return;
   research.active={...sessionContext(research),runId:newId(),taskId:task.id,condition:state.condition,config:{...session.config},build:BUILD,start:null,preparedAt:new Date().toISOString(),phase:'ready',help:0,errors:0,navigation:{buttons:0,swipes:0}};
   if(!saveResearch())return;activeTask={...research.active,task};pendingTaskId=null;log('task_prepared');renderStudy();openParticipant();
 }
@@ -341,9 +398,10 @@ function beginTimer(){research=loadResearch();if(researchBlocked||research.activ
 function stopTimer(){research=loadResearch();if(researchBlocked||research.active?.phase!=='running')return;research.active.stoppedAt=Date.now();research.active.phase='review';saveResearch();log('task_timer_stopped');renderStudy();}
 function observe(key){research=loadResearch();if(!research.active||researchBlocked)return;research.active[key]++;saveResearch();log('observed_'+key);renderStudy();}
 function checkTask(id){
-  research=loadResearch();const a=research.active;if(isStudio||researchBlocked||a?.phase!=='running')return;
+  research=loadResearch();const a=research.active;if(isStudio||state.recordsMode!=='study'||researchBlocked||a?.phase!=='running')return;
   const task=tasks.find(t=>t.id===a.taskId);if(!task||task.manual||task.end!==id)return;
-  const valid=task.id==='dose'?state.doses.A.status==='taken':task.id==='later'?state.doses.A.delay===20&&state.doses.A.status==='postponed':task.id==='contact'?state.selectedContact===0:true;
+  const occurrence=selectedOccurrence(state),targetA=occurrence?.id===occurrenceForDay(state,'A')?.id;
+  const valid=task.id==='dose'?targetA&&occurrence.status==='taken':task.id==='later'?targetA&&occurrence.delay===20&&occurrence.status==='postponed':task.id==='contact'?state.selectedContactId==='contact-0':true;
   if(!valid){log('task_destination_incorrect');return;}
   a.phase='review';a.stoppedAt=Date.now();a.destinationReached=true;saveResearch();log('task_destination_reached');
 }
@@ -356,7 +414,7 @@ function finishTask(result){
   research.results.push(r);research.active=null;if(!saveResearch())return;activeTask=null;log('task_finish',r);
   if(isStudio){renderStudy();toast('Attempt saved: '+result);}else render();
 }
-function resetControls(){return '<article class="content-card"><h3>Reviewed deletion</h3><p>Export each session and an all-sessions backup first. Deletion cannot be undone. Starting a new coded session does not require deletion.</p><button class="study-button secondary" id="clear-results">Review delete of all study sessions</button><div id="clear-review" class="review-warning" hidden><p>Delete ALL participant/session labels, task results, active session and events from this browser? Care records are kept.</p><button class="study-button" id="confirm-clear">Delete all study sessions and events</button><button class="study-button secondary" id="cancel-clear">Cancel deletion</button></div><div class="study-actions"><button class="study-button secondary" id="reset-local">Review reset of all Saha data</button></div><div id="reset-review" class="review-warning" hidden><p>Delete all Saha care state, preferences, study sessions and events for both routes on this browser? Unrelated site storage is kept.</p><button class="study-button" id="confirm-reset">Delete all saved Saha prototype data</button><button class="study-button secondary" id="cancel-reset">Cancel reset</button></div></article>';}
+function resetControls(){return '<article class="content-card"><h3>Reviewed deletion</h3><p>Export each session and an all-sessions backup first. Deletion cannot be undone. Starting a new coded session does not require deletion.</p><button class="study-button secondary" id="clear-results">Review delete of all study sessions</button><div id="clear-review" class="review-warning" hidden><p>Delete ALL participant/session labels, task results, active session and events from this browser? Care records are kept.</p><button class="study-button" id="confirm-clear">Delete all study sessions and events</button><button class="study-button secondary" id="cancel-clear">Cancel deletion</button></div><div class="study-actions"><button class="study-button secondary" id="reset-local">Review reset of studio and study data</button></div><div id="reset-review" class="review-warning" hidden><p>Delete studio previews, study scenarios, study sessions and events from this browser? Personal records, personal comfort settings and unrelated storage are kept.</p><button class="study-button" id="confirm-reset">Reset studio and study data</button><button class="study-button secondary" id="cancel-reset">Cancel reset</button></div></article>';}
 function bindReset(){
   $('#reset-local').onclick=()=>{$('#reset-review').hidden=false;$('#confirm-reset').focus();};
   $('#cancel-reset').onclick=()=>{$('#reset-review').hidden=true;$('#reset-local').focus();};
@@ -368,8 +426,8 @@ function bindReset(){
   };
   $('#confirm-reset').onclick=()=>{
     if(loadResearch().active){toast('Save or stop the active task before resetting.');return;}
-    try{for(const key of [PREFIX+'participant',PREFIX+'studio',STUDY_KEY])localStorage.removeItem(key);storageIssue='';researchBlocked=false;}catch{storageIssue='Browser storage could not be cleared.';}
-    Object.assign(state,defaults(),{screen:'home'});research=newResearch();exportSessionId=null;pendingTaskId=null;activeTask=null;stack=[];render();renderStudy();toast('Saha prototype data reset.');
+    try{for(const key of [SCENARIO_KEY,PREFIX+'studio',STUDY_KEY,WORKSPACE_KEY])localStorage.removeItem(key);storageIssue='';researchBlocked=false;}catch{storageIssue='Browser storage could not be cleared.';}
+    blockedCareKeys.delete(SCENARIO_KEY);blockedCareKeys.delete(PREFIX+'studio');Object.assign(state,defaults('study'),{screen:'home'});research=newResearch();exportSessionId=null;pendingTaskId=null;activeTask=null;stack=[];render();renderStudy();toast('Studio and study data reset. Personal records kept.');
   };
 }
 function applyScenario(s){if(activeTask){toast('Save or stop the active task before changing scenarios.');return;}resetDemo();if(s==='empty')state.emptyVisits=true;if(s==='offline')state.offline=true;go(s==='pending'?'dose':s==='empty'?'visits':s,'studio');setView('prototype');}
@@ -382,8 +440,9 @@ activeTask=research.active?{...research.active,task:tasks.find(t=>t.id===researc
 if(isStudio){initIcons();renderNavigator();renderFlows();renderSystem();render();setView(location.hash.slice(1)||'prototype');}
 else { if(!state.onboarded && state.screen==='home')state.screen='welcome';render(); }
 window.addEventListener('storage',e=>{
-  if(e.key===DATA_KEY || e.key===null){Object.assign(state,loadCare(DATA_KEY));stack=[];render();}
-  if(e.key===STUDY_KEY || e.key===null){research=loadResearch();activeTask=research.active?{...research.active,task:tasks.find(t=>t.id===research.active.taskId)}:null;if(isStudio&&state.view==='study')renderStudy();else render();}
+  if(!isStudio&&[WORKSPACE_KEY,SCENARIO_KEY,PREFIX+'participant',null].includes(e.key)){DATA_KEY=participantKey();Object.assign(state,loadCare(DATA_KEY));state.draft=null;stack=[];render();}
+  else if(e.key===DATA_KEY){Object.assign(state,loadCare(DATA_KEY));state.draft=null;stack=[];render();}
+  if(e.key===STUDY_KEY||e.key===null){research=loadResearch();activeTask=research.active?{...research.active,task:tasks.find(t=>t.id===research.active.taskId)}:null;if(isStudio&&state.view==='study')renderStudy();else render();}
 });
 window.addEventListener('hashchange',()=>{if(!isStudio)return;const v=location.hash.slice(1);if(['prototype','atlas','flows','system','study'].includes(v)&&v!==state.view)setView(v);});
 setInterval(updateForegroundReminders,15000);

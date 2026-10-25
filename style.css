@@ -33,7 +33,9 @@
 .app-field input[aria-invalid="true"] { border: 2px solid #922e24; }
 .phone.high-contrast .app-note, .phone.high-contrast .offline-banner { color: #302008; border-color: #60430c; background: #fff3d4; }
 .storage-notice { padding: 12px; background: #fff2d4; color: #523b14; line-height: 1.5; }
-.app-top { flex-wrap: wrap; }
+.app-top { flex-direction: column; align-items: stretch; gap: 8px; }
+.app-top-right { align-self: flex-end; }
+.app-return { display: flex; min-width: 0; }
 .app-top-right { flex-wrap: wrap; }
 .optional-info { border: 1px solid var(--app-line); border-radius: 12px; padding: 12px; margin: 12px 0; }
 .optional-info summary { cursor: pointer; min-height: 44px; display: list-item; align-content: center; font-weight: 600; }
@@ -43,3 +45,9 @@
 .research-form label { display: grid; gap: 8px; font-size: 14px; }
 .research-form input, .research-form select { min-height: 44px; padding: 9px; max-width: 100%; }
 .review-warning { border: 2px solid #8b5e20; border-radius: 8px; padding: 16px; margin: 16px 0; }
+.app-field input, .app-field select { min-width: 0; max-width: 100%; box-sizing: border-box; }
+.app-field select { display: block; width: 100%; min-height: 56px; font-size: .94em; padding: 14px 12px; border: 1px solid #9daf9a; border-radius: 10px; background: var(--app-card); color: var(--app-ink); }
+.phone.roomy .app-field select { min-height: 66px; }
+.record-mode { font-size: .85em; color: var(--app-muted); border-bottom: 1px solid var(--app-line); padding-bottom: 10px; }
+.studio-toast { pointer-events: none; }
+.app-field input[type="date"], .app-field input[type="time"] { appearance: none; width: 100%; }

@@ -1,6 +1,6 @@
 # Saha task script — planned sessions
 
-Use this script after the instructor's consent/research requirements are checked. It describes planned work and contains no participant results. Use fictional data only. The app and this script target build `saha-phase1-1.1.0`.
+Use this script after the instructor's consent/research requirements are checked. It describes planned work and contains no participant results. Use fictional data only. The app and this script target build `saha-phase1-1.2.2`.
 
 ## Standard introduction and practice
 
@@ -12,7 +12,7 @@ Choose readable text, contrast and spacing with the participant during untimed s
 
 ## Common task protocol
 
-For each task, select the condition outside the participant's view. Click Prepare task, review the replacement warning and confirm. This replaces the participant scenario with fresh equivalent fictional records and the session's frozen configuration; it does not delete earlier study results. The timer is not running yet. Ensure only `/` is visible to the participant. Do not show studio controls, codes or observations during timed work.
+For each task, select the condition outside the participant's view. Click Prepare task, review the replacement warning and confirm. This replaces only the separate study-sample store with equivalent fictional records and the session's frozen configuration; personal records and earlier study results are kept. Confirm the Study sample records label at `/`. The fixed sample day is 25 October 2026; do not substitute a participant's personal records. The timer is not running yet. Ensure only `/` is visible to the participant. Do not show studio controls, codes or observations during timed work.
 
 Read the task instruction exactly. Resolve hearing or wording questions before timing without pointing to controls. Press Start timer and say “Begin.” Record any delay from switching between researcher and participant views. If the setup cannot separate that delay, use an observer stopwatch, document it and record actual participant start/stop times in the sheet. The phone and a separate laptop do not share study data.
 
@@ -67,3 +67,5 @@ For the four destination tasks the app stops on a checked interface destination 
 Administer the standard SUS after each condition, then use retrospective prompts from [POST_TEST_INTERVIEW.md](POST_TEST_INTERVIEW.md). Offer breaks. Keep assisted and failed attempts visible. Record actual physical swipe attempts in observation notes, including unsuccessful ones; automatic logs only count recognized navigation.
 
 Export the selected session task CSV and event JSON. Verify participant code, session ID, build, order and B/C settings. Save observations/questionnaires separately under the same code in the course-approved location. Export an all-sessions backup. Creating the next coded session keeps earlier records; do not delete them merely to start another participant. Reviewed deletion is only for the agreed data-handling process after exports have been verified.
+
+Record-management forms exist in all conditions but are outside these five timed tasks. Do not add typing, editing or archiving requirements to one condition only. Use the same build and fictional samples throughout. After a task/session is stopped or saved, Open personal records in the studio restores the participant's separate personal workspace.
