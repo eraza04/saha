@@ -1,7 +1,7 @@
 'use strict';
-import { renderScreen } from './participant-screens.js';
+import { renderScreen, renderDueReminders } from './participant-screens.js';
 import { newResearch, restoreResearch, makeSession, sessionContext, newId } from './research-state.js';
-import { BUILD, PREFIX, defaults, restore, snapshot, changeMedicine, preferences, selectedOccurrence, selectedAppointment, selectMedicine, occurrenceForDay, ensureOccurrences, careDay, dayLabel, timeLabel, dueReminders, saveMedicine, archiveMedicine, saveAppointment, deleteAppointment, saveContact, validTime, validDay, appointmentReminderAt } from './care-state.js';
+import { BUILD, PREFIX, formDraftKey, reminderState, nextUpItem, upcomingAppointments, defaults, restore, snapshot, changeMedicine, preferences, selectedOccurrence, selectedAppointment, selectMedicine, occurrenceForDay, ensureOccurrences, careDay, dayLabel, timeLabel, dueReminders, saveMedicine, archiveMedicine, saveAppointment, deleteAppointment, saveContact, validTime, validDay, appointmentReminderAt } from './care-state.js';
 const isStudio = document.body.dataset.mode === 'studio';
 document.documentElement.dataset.build=BUILD;
 if(!isStudio){
@@ -58,6 +58,7 @@ const $ = (s, root=document) => root.querySelector(s);
 const $$ = (s, root=document) => [...root.querySelectorAll(s)];
 const esc = s => String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const paths={
+ mic:'<rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10v2a7 7 0 0 0 14 0v-2M12 19v3M8 22h8"/>',
  phone:'<rect x="6" y="2" width="12" height="20" rx="3"/><path d="M10 18h4"/>',
  grid:'<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>',
  route:'<circle cx="5" cy="5" r="2"/><circle cx="19" cy="19" r="2"/><path d="M7 5h9a4 4 0 0 1 0 8H8a3 3 0 0 0 0 6h9"/>',
@@ -116,16 +117,20 @@ const screens=[
  ['calling','22','A clear call state','People','The selected contact stays visible while the prototype demonstrates an outgoing call.','No false connection','The screen says “Call preview”; it never pretends a person has answered.','Easy exit','A large End preview control returns to the contact. The demonstration does not access a dialer.']
 ].map(a=>({id:a[0],code:'S'+a[1],title:a[2],group:a[3],summary:a[4],point1:a[5],detail1:a[6],point2:a[7],detail2:a[8]}));
 const byId=Object.fromEntries(screens.map(s=>[s.id,s]));
+for(const [id,title,group] of [['skipReminder','Skip reminder','Daily care'],['skipped','Reminder skipped','Daily care'],['message','Message contact','People'],['messagePreview','Message preview','People']])byId[id]={id,title,group,code:'Care',summary:'Fictional care actions.',point1:'Explicit confirmation',detail1:'Actions require confirmation.',point2:'Prototype only',detail2:'No real calls or messages.'};
 byId.help={id:'help',code:'Help',title:'Help',group:'Comfort',summary:'Optional explanations and trusted people.',point1:'Short main screens',detail1:'Secondary explanations live here.',point2:'Visible support',detail2:'Trusted contacts remain one button away.'};
 for(const [id,title,group] of [['addmedicine','Add medicine','Daily care'],['medicinedetail','Medicine details','Daily care'],['editmedicine','Edit medicine','Daily care'],['archivemedicine','Archive medicine','Daily care'],['addappointment','Add appointment','Visits'],['editappointment','Edit appointment','Visits'],['deleteappointment','Delete appointment','Visits'],['addcontact','Add contact','People']])byId[id]={id,code:'Records',title,group,summary:'Manage fictional records locally.',point1:'Explicit saving',detail1:'Save or cancel. Existing history is retained.',point2:'Shared functionality',detail2:'The same actions are available in all conditions.'};
 if(!isStudio)DATA_KEY=participantKey();
 let state=loadCare(DATA_KEY);
 let stack=[],wire=false,atlasWire=false,atlasFilter='All',activeTask=null,studyResults=[],swipeStart=null;
-let renderedScreen=null;
+let renderedScreen=null,timeView='',timeStatuses='';
+let voiceJob=null,voiceField=null;
+
 const groupRoot={Start:'home','Daily care':'meds',Visits:'visits',People:'people',Comfort:'home','Edge states':'home'};
 // These destinations work without the in-memory navigation stack, including
 // when a saved detail/form screen is opened directly or restored after refresh.
 const parentNavigation={
+  skipReminder:['Back to Medicine','meds'],skipped:['Back to Medicine','meds'],message:['Back to People','people'],messagePreview:['Back to People','people'],
   meds:['Back to Today','home'],visits:['Back to Today','home'],people:['Back to Today','home'],
   visit:['Back to Visits','visits'],visitReminder:['Back to appointment','visit'],deleteappointment:['Back to Visits','visits'],
   dose:['Back to Medicine','meds'],taken:['Back to Medicine','meds'],postponed:['Back to Medicine','meds'],medicinedetail:['Back to Medicine','meds'],
@@ -145,23 +150,28 @@ function big(ic){return '<div class="big-symbol">'+icon(ic)+'</div>';}
 function detail(ic,label,value){return '<div class="detail-row">'+icon(ic)+'<div><small>'+label+'</small><strong>'+value+'</strong></div></div>';}
 function taskCard(ic,title,sub,target,variant=''){return '<button class="task-card" data-action="go:'+target+'"><span class="task-icon '+variant+'">'+icon(ic)+'</span><span><strong>'+title+'</strong><small>'+sub+'</small></span>'+icon('arrow')+'</button>';}
 function progress(n){return '<div class="app-progress">'+[1,2,3].map(i=>'<i class="'+(i<=n?'active':'')+'"></i>').join('')+'</div>';}
-function content(id){return renderScreen(id,state,{esc,icon,btn,jump,badge,detail,taskCard,read,formatTime});}
+function screenUI(){return {esc,icon,btn,jump,badge,detail,taskCard,read,formatTime};}
+function content(id){return renderScreen(id,state,screenUI());}
 function formatTime(value){return value?new Date(value).toLocaleString('en-GB',{day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}):'Not recorded';}
 function appHTML(id){
 const s=byId[id],section=id==='home'?'home':groupRoot[s.group];
 const parent=parentNavigation[id];
-let left=id==='home'||id==='welcome'?'<span class="mini-brand">saha</span>':parent?'<button class="app-top-btn" data-action="go:'+parent[1]+'">'+icon(parent[0]==='Cancel'?'close':'back')+parent[0]+'</button>':'<button class="app-top-btn" data-action="back">'+icon('back')+'Back</button>';
-let right='<div class="app-top-right"><button class="app-top-btn" data-action="go:help">'+icon('info')+'Help</button><button class="app-top-btn settings-top" aria-label="Comfort settings" data-action="go:settings">'+icon('sliders')+'Settings</button></div>';
-return '<header class="app-top app-column">'+right+'<div class="app-return">'+left+'</div></header><div id="screen-content" class="app-body app-column" tabindex="-1">'+(state.recordsMode==='study'?'<p class="record-mode">Study sample records</p>':'')+content(id)+'<button class="read-btn" data-speak-screen>'+icon('audio')+'Read aloud</button><div id="foreground-reminders" aria-live="polite"></div></div><nav class="app-nav" aria-label="Main app sections">'+[['home','home','Today'],['meds','pill','Medicine'],['visits','calendar','Visits'],['people','people','People']].map(a=>'<button data-action="nav:'+a[0]+'" class="'+(section===a[0]?'active':'')+'" '+(section===a[0]?'aria-current="page"':'')+'>'+icon(a[1])+'<span>'+a[2]+'</span></button>').join('')+'</nav>';
+let left=id==='home'||id==='welcome'?'<span class="mini-brand">saha</span>':parent?'<button class="app-top-btn" data-action="'+(parent[0]==='Cancel'?'cancelForm:':'go:')+parent[1]+'">'+icon(parent[0]==='Cancel'?'close':'back')+parent[0]+'</button>':'<button class="app-top-btn" data-action="back">'+icon('back')+'Back</button>';
+let right='<div class="app-top-right"><button class="app-top-btn app-read-button" data-speak-screen>'+icon('audio')+'Read aloud</button><button class="app-top-btn" data-action="go:help">'+icon('info')+'Help</button><button class="app-top-btn settings-top" aria-label="Comfort settings" data-action="go:settings">'+icon('sliders')+'Settings</button></div>';
+return '<header class="app-top app-column">'+right+'<div class="app-return">'+left+'</div></header><div id="screen-content" class="app-body app-column" tabindex="-1">'+(state.recordsMode==='study'?'<p class="record-mode">Study sample records</p>':'')+content(id)+(id==='home'?'<section id="foreground-reminders" aria-label="Other reminders"></section>':'')+'</div><nav class="app-nav" aria-label="Main app sections">'+[['home','home','Today'],['meds','pill','Medicine'],['visits','calendar','Visits'],['people','people','People']].map(a=>'<button data-action="nav:'+a[0]+'" class="'+(section===a[0]?'active':'')+'" '+(section===a[0]?'aria-current="page"':'')+'>'+icon(a[1])+'<span>'+a[2]+'</span></button>').join('')+'</nav>';
 }
 function applyPhoneClasses(el,opts={}){
-const cls=['phone',opts.mini?'mini-device':'',wire&&!opts.mini||opts.mini&&atlasWire?'wireframe':'',state.condition==='A'&&!opts.mini?'baseline':'',(opts.mini||state.condition!=='A')&&state.size==='large'?'large-text':(opts.mini||state.condition!=='A')&&state.size==='largest'?'largest-text':'',(opts.mini||state.condition!=='A')&&state.contrast?'high-contrast':'',(opts.mini||state.condition!=='A')&&state.roomy?'roomy':''].filter(Boolean).join(' ');
+const cls=['phone',state.dark?'dark-mode':'',opts.mini?'mini-device':'',wire&&!opts.mini||opts.mini&&atlasWire?'wireframe':'',state.condition==='A'&&!opts.mini?'baseline':'',(opts.mini||state.condition!=='A')&&state.size==='large'?'large-text':(opts.mini||state.condition!=='A')&&state.size==='largest'?'largest-text':'',(opts.mini||state.condition!=='A')&&state.contrast?'high-contrast':'',(opts.mini||state.condition!=='A')&&state.roomy?'roomy':''].filter(Boolean).join(' ');
 el.className=cls;
 }
 function render(focus=false){
+  closeVoice();
+  const draftKey=formDraftKey(state);if(draftKey)state.draft=state.formDrafts[draftKey]||state.draft;
   ensureOccurrences(state);
   if (!byId[state.screen]) state.screen='home';
   const changed=renderedScreen!==state.screen,previousScroll=$('#app .app-body')?.scrollTop||0;
+  document.body.classList.toggle('dark-theme',!isStudio&&state.dark);
+  if(!isStudio)document.querySelector('meta[name="theme-color"]')?.setAttribute('content',state.dark?'#14231f':'#164f43');
   applyPhoneClasses($('#phone')); $('#app').innerHTML=appHTML(state.screen);
   if(isStudio){
     const s=byId[state.screen];$('#screen-code').textContent=s.code;$('#screen-title').textContent=s.title;
@@ -178,18 +188,29 @@ function render(focus=false){
   const body=$('#app .app-body');
   body.scrollTop=changed||focus?0:previousScroll;
   if((!isStudio||state.view==='prototype')&&(focus||(changed&&renderedScreen!==null)))body.focus({preventScroll:true});
+  const title=body.querySelector('h2');if(title){title.id='screen-title-heading';body.setAttribute('role','region');body.setAttribute('aria-labelledby',title.id);}
   renderedScreen=state.screen;
-  updateForegroundReminders();
+  updateForegroundReminders(true);
   saveCare();
 }
-function updateForegroundReminders(){
-  if(ensureOccurrences(state)){render();return;}
-  const region=$('#app #foreground-reminders');if(!region)return;
-  const due=dueReminders(state);
-  const html=due.medicines.map(o=>'<div class="app-note">'+esc(o.name)+' reminder is ready. Scheduled: '+esc(dayLabel(o.date))+' / '+timeLabel(o.time)+'.'+btn('Review '+esc(o.name)+' reminder','occurrence:'+o.id,'secondary','bell')+'</div>').join('')+
-    due.appointments.map(a=>'<div class="app-note">Appointment reminder: '+esc(a.clinician)+'.'+btn('Review appointment','appointmentReminder:'+a.id,'secondary','calendar')+'</div>').join('');
-  if(region.innerHTML!==html)region.innerHTML=html;
+function reminderSignature(){return JSON.stringify([careDay(state),Math.floor(Date.now()/60000),Object.values(state.occurrences).map(o=>[o.id,reminderState(state,o).key]),upcomingAppointments(state).map(a=>a.id),nextUpItem(state)?.key]);}
+function announce(message){
+ let region=$('#app-announcement');if(!region){region=document.createElement('p');region.id='app-announcement';region.className='sr-only';region.setAttribute('role','status');region.setAttribute('aria-live','polite');region.setAttribute('aria-atomic','true');$('#phone').append(region);}region.textContent=message;
 }
+function updateForegroundReminders(fromRender=false){
+ const generated=ensureOccurrences(state),signature=reminderSignature(),statuses=JSON.stringify(JSON.parse(signature).filter((_,i)=>i!==1)),statusChanged=statuses!==timeStatuses;timeStatuses=statuses;
+ if(!fromRender&&signature===timeView)return;
+ if(!fromRender&&signature!==timeView&&!formDraftKey(state)&&state.screen!=='message'&&!voiceField){
+  const body=$('#app .app-body'),active=document.activeElement,action=active?.dataset.action,id=active?.id,reader=active?.hasAttribute('data-speak-screen'),summaries=$$('summary',body),summaryIndex=summaries.indexOf(active),open=$$('details',body).map(d=>d.open),focused=body.contains(active)||$('#app').contains(active);
+  render();$$('details',$('#app .app-body')).forEach((d,i)=>d.open=Boolean(open[i]));
+  const target=id?document.getElementById(id):action?$('#app [data-action="'+CSS.escape(action)+'"]'):reader?$('#app [data-speak-screen]'):summaryIndex>=0?$$('summary',$('#app .app-body'))[summaryIndex]:null;
+  if(focused)(target||$('#app .app-body')).focus({preventScroll:true});
+  announce(statusChanged?'Reminder statuses updated.':'');return;
+ }
+ timeView=signature;if(generated)saveCare();
+ const region=$('#app #foreground-reminders');if(region)region.innerHTML=renderDueReminders(state,screenUI());
+}
+
 function go(id,source='button',replace=false){
 if(!byId[id])return;
 if(!replace&&state.screen!==id)stack.push(state.screen);
@@ -207,6 +228,7 @@ function log(type,data={}){
   saveResearch();
 }
 function speak(text){
+  if(voiceJob)cancelRecognition();
   try {
     if(!('speechSynthesis' in window) || !('SpeechSynthesisUtterance' in window)) throw new Error();
     window.speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(text);u.lang='en-GB';u.rate=.86;
@@ -219,13 +241,91 @@ function resetDemo(){
   const kept={condition:state.condition,...preferences(state)};
   Object.assign(state,defaults('study'),kept,{screen:'home'});stack=[];render();
 }
+function captureDraft(){
+  const key=formDraftKey(state),form=$('#app form');if(!key||!form)return;
+  state.draft=Object.fromEntries(new FormData(form));state.formDrafts[key]={...state.draft};saveCare();
+}
+function clearCurrentDraft(){const key=formDraftKey(state);if(key)delete state.formDrafts[key];state.draft=null;state.formError='';saveCare();}
+function voiceStatus(message){const status=$('#voice-status');if(status)status.textContent=message;}
+function cancelRecognition(){
+  const job=voiceJob;voiceJob=null;
+  if(job){clearTimeout(job.timer);try{job.recognition.abort();}catch{}}
+  voiceControls();
+}
+function closeVoice(){cancelRecognition();voiceField=null;$('#voice-panel')?.setAttribute('hidden','');}
+function voiceControls(listening=false){
+  const start=$('[data-action="voiceStart"]'),stop=$('[data-action="voiceStop"]');
+  if(start)start.hidden=listening;if(stop)stop.hidden=!listening;
+}
+function prepareVoice(key){
+  closeVoice();const field=$('#record-'+key);if(!field||field.type!=='text')return;
+  voiceField=field;const panel=$('#voice-panel');panel.hidden=false;$('#voice-review').hidden=true;$('#voice-result').value='';voiceControls();
+  const supported=Boolean(window.SpeechRecognition||window.webkitSpeechRecognition);
+  $('[data-action="voiceStart"]').disabled=!supported;
+  voiceStatus(supported?'Ready to dictate '+field.labels[0].textContent+'. Start microphone when ready.':'Voice typing is unavailable in this browser. You can type in the field.');
+  (supported?$('[data-action="voiceStart"]'):$('[data-action="voiceCancel"]')).focus();
+}
+function handleVoice(action){
+  if(!voiceField?.isConnected)return;
+  if(action==='voiceCancel'){
+    const field=voiceField;closeVoice();$('#voice-panel').hidden=true;field.focus();return;
+  }
+  if(action==='voiceRead'){speak($('#voice-result').value);return;}
+  if(action==='voiceUse'){
+    const text=$('#voice-result').value.trim(),limit=voiceField.maxLength;
+    if(!text||text.length>limit){voiceStatus('Enter between 1 and '+limit+' characters, or try dictating again.');$('#voice-result').focus();return;}
+    cancelRecognition();voiceField.value=text;voiceField.dispatchEvent(new Event('input',{bubbles:true}));voiceField.focus();
+    $('#voice-review').hidden=true;voiceStatus('Text added to '+voiceField.labels[0].textContent+'. Review the field and save the form when ready.');log('voice_text_used',{field:voiceField.name});return;
+  }
+  if(action==='voiceStop'){
+    if(voiceJob){try{voiceStatus('Finishing voice typing.');voiceJob.recognition.stop();}catch{cancelRecognition();voiceControls();voiceStatus('Listening stopped. Try again or type.');}}
+    return;
+  }
+  if(action!=='voiceStart'||voiceJob)return;
+  const Recognition=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!Recognition){voiceStatus('Voice typing is unavailable. You can type instead.');return;}
+  try{window.speechSynthesis?.cancel();}catch{}$('#voice-review').hidden=true;$('#voice-result').value='';
+  let recognition;
+  try{recognition=new Recognition();}catch{voiceStatus('Voice typing could not start. You can type instead.');return;}
+  const job={recognition,field:voiceField,received:false,failed:false,timer:null};voiceJob=job;
+  recognition.lang='en-GB';recognition.continuous=false;recognition.interimResults=false;recognition.maxAlternatives=1;
+  recognition.onstart=()=>{if(voiceJob===job){voiceStatus('Listening for '+job.field.labels[0].textContent+'.');log('voice_typing_started',{field:job.field.name});}};
+  recognition.onresult=e=>{
+    if(voiceJob!==job||!job.field.isConnected)return;
+    const text=Array.from(e.results).filter(r=>r.isFinal!==false).map(r=>r[0]?.transcript||'').join(' ').trim();
+    if(!text)return;job.received=true;$('#voice-result').value=text;$('#voice-result').maxLength=job.field.maxLength;$('#voice-review').hidden=false;
+    voiceStatus('Text ready. Review or edit it, then choose Use text. Nothing has been saved as a record.');
+  };
+  recognition.onerror=e=>{
+    if(voiceJob!==job)return;job.failed=true;
+    const messages={'not-allowed':'Microphone permission was denied. You can type instead.','service-not-allowed':'Speech service is unavailable. You can type instead.','audio-capture':'No microphone is available. You can type instead.','network':'Speech service could not connect. Try again or type.','no-speech':'No speech was heard. Try again or type.','aborted':'Listening cancelled. You can type instead.'};
+    voiceStatus(messages[e.error]||'Voice typing failed. Try again or type.');cancelRecognition();voiceControls();log('voice_typing_error',{reason:Object.hasOwn(messages,e.error)?e.error:'other'});
+  };
+  recognition.onend=()=>{
+    if(voiceJob!==job)return;clearTimeout(job.timer);voiceJob=null;voiceControls();
+    if(!job.received&&!job.failed)voiceStatus('No text received. Try again or type.');
+  };
+  voiceControls(true);voiceStatus('Requesting microphone. Allow access in your browser to start.');
+  try{
+    log('voice_typing_requested',{field:job.field.name});recognition.start();
+    if(voiceJob===job)job.timer=setTimeout(()=>{if(voiceJob===job){cancelRecognition();voiceControls();voiceStatus('Listening stopped after one minute. Review any text, try again or type.');}},60000);
+  }catch{cancelRecognition();voiceControls();voiceStatus('Voice typing could not start. Try again or type.');}
+}
 function handle(action,el){
 let [a,v]=action.split(':');
+if(a==='cancelForm'){clearCurrentDraft();go(v);return;}
 if(a==='go'){go(v);return;}if(a==='nav'){stack=[];go(v,'button',true);return;}
 if(a==='back'){goBack();return;}
+if(a==='discardDraft'){clearCurrentDraft();render();$('#app form input')?.focus();return;}
+if(a==='dictate'){prepareVoice(v);return;}
+if(a.startsWith('voice')){handleVoice(a);return;}
 if(activeTask&&state.recordsMode==='study'&&['size','preferButtons','tryGesture'].includes(a))return;
 if(a==='size'){state.size=v;log('preference',{key:'size',value:v});render();$('#app [data-action="size:'+v+'"]')?.focus({preventScroll:true});return;}
-if(a==='medicine'||a==='reminder'){if(!selectMedicine(state,v))return;go(selectedOccurrence(state).status==='taken'?'history':a==='reminder'?'postponed':'dose');return;}
+if(['takeOccurrence','snoozeOccurrence','skipOccurrence'].includes(a)){const o=state.occurrences[v];if(!o||['taken','skipped'].includes(o.status))return;state.selectedMedicineId=o.medicineId;state.selectedOccurrenceId=o.id;if(a==='takeOccurrence')handle('take');else go(a==='snoozeOccurrence'?'snooze':'skipReminder');return;}
+if(a==='confirmSkip'){if(changeMedicine(state,'skipped')){log('reminder_skipped',{occurrenceId:state.selectedOccurrenceId});go('skipped');}return;}
+if(a==='contactCall'||a==='contactMessage'){const c=state.contacts[Number(v)];if(!c)return;state.selectedContactId=c.id;state.messagePreview='';go(a==='contactCall'?'call':'message');return;}
+if(a==='previewMessage'){const text=$('#message-preview').value.trim();if(!text){$('#message-error').textContent='Enter fictional message text to preview.';$('#message-preview').setAttribute('aria-invalid','true');$('#message-preview').focus();return;}state.messagePreview=text;go('messagePreview');return;}
+if(a==='medicine'||a==='reminder'){if(!selectMedicine(state,v))return;go(['taken','skipped'].includes(selectedOccurrence(state).status)?'history':a==='reminder'?'postponed':'dose');return;}
 if(a==='occurrence'){const o=state.occurrences[v];if(!o)return;state.selectedMedicineId=o.medicineId;state.selectedOccurrenceId=o.id;go(o.status==='taken'?'history':'dose');return;}
 if(a==='take'){if(changeMedicine(state,'taken')){log('taken',{doseId:state.selectedMedicineId,occurrenceId:state.selectedOccurrenceId});go('taken');}return;}
 if(a==='correct'){const o=state.occurrences[v];if(!o)return;state.selectedMedicineId=o.medicineId;state.selectedOccurrenceId=o.id;handle('undo');return;}
@@ -253,7 +353,9 @@ const start=e.target.closest('[data-start-task]');if(start){startTask(start.data
 const result=e.target.closest('[data-task-result]');if(result){finishTask(result.dataset.taskResult);return;}
 const scenario=e.target.closest('[data-scenario]');if(scenario){applyScenario(scenario.dataset.scenario);return;}
 });
-document.addEventListener('change',e=>{const key=e.target.dataset.pref;if(!['contrast','roomy','gestures'].includes(key)||(activeTask&&state.recordsMode==='study'))return;state[key]=e.target.checked;log('preference',{key,value:state[key]});render();$('#app [data-pref="'+key+'"]')?.focus({preventScroll:false});});
+document.addEventListener('change',e=>{const key=e.target.dataset.pref;if(!['contrast','roomy','gestures','dark'].includes(key)||(activeTask&&state.recordsMode==='study'))return;state[key]=e.target.checked;log('preference',{key,value:state[key]});render();$('#app [data-pref="'+key+'"]')?.focus({preventScroll:false});});
+document.addEventListener('input',e=>{if(e.target.id==='message-preview'){e.target.removeAttribute('aria-invalid');$('#message-error').textContent='';}if(e.target.matches('#app form input,#app form select'))captureDraft();});
+document.addEventListener('change',e=>{if(e.target.matches('#app form input,#app form select'))captureDraft();});
 document.addEventListener('submit',e=>{
   const kind=e.target.id.replace('-form','');if(!['contact','medicine','appointment'].includes(kind))return;e.preventDefault();
   const draft=Object.fromEntries(new FormData(e.target)),editing=state.screen==='edit'+kind;
@@ -261,7 +363,7 @@ document.addEventListener('submit',e=>{
     if(kind==='medicine')saveMedicine(state,draft,editing?state.selectedMedicineId:null);
     if(kind==='appointment')saveAppointment(state,draft,editing?state.selectedAppointmentId:null);
     if(kind==='contact')saveContact(state,draft,editing?state.selectedContactId:null);
-    log(kind+'_saved');go({medicine:'medicinedetail',appointment:'visit',contact:'contact'}[kind]);
+    clearCurrentDraft();log(kind+'_saved');go({medicine:'medicinedetail',appointment:'visit',contact:'contact'}[kind]);toast(kind[0].toUpperCase()+kind.slice(1)+' saved.');
   }catch(error){
     state.draft=draft;state.formError=error.message;render();
     let invalid;
@@ -446,4 +548,7 @@ window.addEventListener('storage',e=>{
 });
 window.addEventListener('hashchange',()=>{if(!isStudio)return;const v=location.hash.slice(1);if(['prototype','atlas','flows','system','study'].includes(v)&&v!==state.view)setView(v);});
 setInterval(updateForegroundReminders,15000);
-document.addEventListener('visibilitychange',()=>{if(!document.hidden)updateForegroundReminders();});
+document.addEventListener('visibilitychange',()=>{if(document.hidden)closeVoice();else updateForegroundReminders();});
+window.addEventListener('pagehide',closeVoice);
+
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&voiceField){e.preventDefault();e.stopPropagation();handleVoice('voiceCancel');}},{capture:true});

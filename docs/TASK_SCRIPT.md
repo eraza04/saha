@@ -1,6 +1,6 @@
 # Saha task script — planned sessions
 
-Use this script after the instructor's consent/research requirements are checked. It describes planned work and contains no participant results. Use fictional data only. The app and this script target build `saha-phase1-1.2.2`.
+Use this script after the instructor's consent/research requirements are checked. It describes planned work and contains no participant results. Use fictional data only. The app and this script target build `saha-phase1-1.4.0`.
 
 ## Standard introduction and practice
 
@@ -8,7 +8,7 @@ Read: “We are testing Saha, not you. All medicines, visits and contacts here a
 
 In untimed practice, explain Today, Medicine, Visits, People, Back, Help and Settings. Give equivalent opportunities to find a section and return in each condition. In C, demonstrate one slow horizontal swipe on blank main-section content and offer practice in both directions. Say: “You may use swipes, buttons, or both. You do not have to use swipes.” Do not require a successful swipe to proceed. Record the practice provided. Agree the number/duration of practice opportunities after the pilot and apply it consistently; record extra assistance. Practice must use a separate PRACTICE code or an external practice record, not the main timed session.
 
-Choose readable text, contrast and spacing with the participant during untimed setup. Enable optional swipes in C for availability; the participant may still use buttons throughout. Record the shared B/C settings. Create the main coded session after practice and configuration selection. Allocate its condition order as specified in the plan.
+Choose a light/dark theme, readable text, contrast and spacing with the participant during untimed setup. Enable optional swipes in C for availability; the participant may still use buttons throughout. Record the shared B/C settings. Create the main coded session after practice and configuration selection. Allocate its condition order as specified in the plan.
 
 ## Common task protocol
 
@@ -26,17 +26,17 @@ For the four destination tasks the app stops on a checked interface destination 
 
 ## Task 1 — record medicine already taken
 
-**Read:** “The scenario says you have already taken Medicine A, scheduled for 9:00 am. Record this in Saha.”
+**Read:** “The scenario says you have already taken Vitamin D (demo), scheduled for 9:00 am. Record this in Saha.”
 
-**Start:** Today; Medicine A and B have no taken records; no postponement. **Success:** Medicine A has exactly one explicit taken record for the 9:00 am schedule, and the participant reaches its recorded confirmation. Opening a reminder alone is insufficient. **Timing:** start at Begin; automatic stop at the checked taken-confirmation destination. Verify the state before saving outcome.
+**Start:** Today; Vitamin D (demo) and B have no taken records; no postponement. **Success:** Vitamin D (demo) has exactly one explicit taken record for the 9:00 am schedule, and the participant reaches its recorded confirmation. Opening a reminder alone is insufficient. **Timing:** start at Begin; automatic stop at the checked taken-confirmation destination. Verify the state before saving outcome.
 
-**Errors:** choosing Medicine B, postponing instead, interpreting opening a reminder as recording, or correcting the entry before completing. Wrong-section selections are counted if clearly unintended. **Assistance:** apply the common help rules; naming Record taken is a hint. **Stop:** success, participant request/discomfort, technical interruption or provisional 120 seconds. The task never asks the participant to ingest medicine. Do not correct the record during this timed task; demonstrate correction separately if needed.
+**Errors:** choosing Cetirizine (demo), postponing instead, interpreting opening a reminder as recording, or correcting the entry before completing. Wrong-section selections are counted if clearly unintended. **Assistance:** apply the common help rules; naming Taken is a hint. **Stop:** success, participant request/discomfort, technical interruption or provisional 120 seconds. The task never asks the participant to ingest medicine. Do not correct the record during this timed task; demonstrate correction separately if needed.
 
 ## Task 2 — postpone a reminder
 
-**Read:** “Set the Medicine A reminder for 20 minutes from now. Do not record it as taken.”
+**Read:** “Set the Vitamin D (demo) reminder for 20 minutes from now. Do not record it as taken.”
 
-**Start:** Medicine A reminder; no taken record or existing postponement. **Success:** a 20-minute postponement is confirmed, with the original 9:00 am schedule unchanged and no taken record. **Timing:** Begin to correct postponed confirmation; the app checks the selected duration. An incorrect delay does not stop timing automatically.
+**Start:** Vitamin D (demo) reminder; no taken record or existing postponement. **Success:** a 20-minute postponement is confirmed, with the original 9:00 am schedule unchanged and no taken record. **Timing:** Begin to correct postponed confirmation; the app checks the selected duration. An incorrect delay does not stop timing automatically.
 
 **Errors:** choosing 10 or 30 minutes, recording taken, changing the wrong medicine, or saying the medicine schedule changed. Record any mistaken interpretation separately from UI actions. **Assistance:** apply the common rules; naming a duration button is a hint. **Stop:** common rule and provisional 120 seconds; retain wrong-delay and unsuccessful attempts.
 
@@ -69,3 +69,13 @@ Administer the standard SUS after each condition, then use retrospective prompts
 Export the selected session task CSV and event JSON. Verify participant code, session ID, build, order and B/C settings. Save observations/questionnaires separately under the same code in the course-approved location. Export an all-sessions backup. Creating the next coded session keeps earlier records; do not delete them merely to start another participant. Reviewed deletion is only for the agreed data-handling process after exports have been verified.
 
 Record-management forms exist in all conditions but are outside these five timed tasks. Do not add typing, editing or archiving requirements to one condition only. Use the same build and fictional samples throughout. After a task/session is stopped or saved, Open personal records in the studio restores the participant's separate personal workspace.
+
+## Proposed extension pilot tasks (separate from the original five)
+
+Finalize eligibility, microphone processing consent, practice and stopping limits with the instructor before recruitment. These are planned tasks, not completed sessions. Use the participant's usual assistive technology. Offer an accessible feedback form or spoken interview. Never require voice use.
+
+Voice-entry scenario: begin at Add appointment with empty fields and the microphone off. Read: "Enter the fictional appointment information on this task card and save it. Use whichever available input method you prefer." Supply the same-length fictional title/location and an explicit fictional date/time in both entry conditions. Success means the intended record is saved with correct fields; reaching details alone does not prove comprehension. Time from Begin to the saved-detail screen, then check understanding retrospectively. Record incorrect fields, unintended saves, recognition errors, corrections and assistance, keeping failed/assisted attempts. A provisional three-minute limit and a stop-at-request rule will be reviewed after the pilot. Record voice requested/started/accepted separately; a microphone failure is an observed attempt, not grounds to remove its result.
+
+Draft-recovery scenario: begin on an empty create form. Read: "Begin entering the fictional details. Open Today, return to the form and continue." Check that the intended unfinished values remain and that no record has been created until Save. Discuss whether the restored-draft message and Cancel/Discard actions were understood after the task. Treat this as a separate exploratory activity, outside the original five-task comparison.
+
+During untimed setup, compare light and dark themes with the same selected size/spacing. Keep the chosen theme and comfort settings identical between B and C and record them. Do not change the original SUS questionnaire to add theme/voice questions; ask those separately.

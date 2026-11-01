@@ -1,6 +1,8 @@
-﻿# Release Saha to the existing Vercel project
+> Release 1.4.0 includes voice typing, drafts, dark theme and clock-based reminder review fixes. Public output remains the same eight-file allowlist; voice uses the browser API and adds no server or secrets. Actual readiness, deployment URL and commit are checked at release handover.
 
-This guide targets release `saha-phase1-1.2.2`: fictional record management, preserved study tools and one aligned header return. The app adds no backend, database, authentication, PWA installation or background reminders. The build is shown in Help and `document.documentElement.dataset.build`.
+# Release Saha to the existing Vercel project
+
+This guide targets release `saha-phase1-1.4.0`: fictional record management, preserved study tools and one aligned header return. The app adds no backend, database, authentication, PWA installation or background reminders. The build is shown in Help and `document.documentElement.dataset.build`.
 
 ## Existing target and traceability
 
@@ -13,7 +15,7 @@ This guide targets release `saha-phase1-1.2.2`: fictional record management, pre
 
 Commit and push reviewed source before uploading. Use `releaseCommit=<full HEAD SHA>` deployment metadata, and verify it with Vercel's deployment record after deployment. Record the actual deployment ID/URL, SHA, readiness and live check results in the release handover. This guide's local test results do not establish that an upload is live.
 
-The historical 1.1.0 deployment was `dpl_2KHjpjQkvcMv3xE4PSK9EyP5e65u`, with unique URL `https://saha-4wvhtqtg4-neuraai1.vercel.app`. Its source was initially uncommitted, then backed up as `30b324e481cdc3adef37e8f2103276df2931bb1e`. These identify the older release, not 1.2.2.
+The historical 1.1.0 deployment was `dpl_2KHjpjQkvcMv3xE4PSK9EyP5e65u`, with unique URL `https://saha-4wvhtqtg4-neuraai1.vercel.app`. Its source was initially uncommitted, then backed up as `30b324e481cdc3adef37e8f2103276df2931bb1e`. These identify the older release, not the current release.
 
 ## Build settings and public files
 
@@ -120,7 +122,7 @@ npm.cmd run test:deployment
 Remove-Item Env:SAHA_DEPLOYMENT_URL
 ```
 
-Remote mode starts no local server. It now includes 52 cases: both routes/direct loading/refresh, `/studio` redirect, assets, excluded-path 404s, medicines/appointments/contacts, recovery, study tools and layout. The release journeys cover a real desktop browser context as well as phone emulation. Tests store invented records only inside their own temporary browser profiles; resets do not touch the presenter's browser data.
+Remote mode starts no local server. The current suite includes 72 cases: both routes/direct loading/refresh, `/studio` redirect, assets, excluded-path 404s, medicines/appointments/contacts, recovery, study tools and layout. The release journeys cover a real desktop browser context as well as phone emulation. Tests store invented records only inside their own temporary browser profiles; resets do not touch the presenter's browser data.
 
 Verify the public `care-state.js` build and compare **all eight public output files byte-for-byte** against the tested `dist` files. Confirm `releaseCommit` matches the pushed SHA. Check header/content alignment and a single equivalent return after Save, reminder review, scrolling, refresh and entry without history. Preserve fictional medicines, appointments, contacts, dated occurrences and reminder acknowledgement state across return navigation. Save local screenshots and measurements outside deployment inputs. A bounded runtime-error query can supplement this, but a static frontend's logs do not provide continuous client-error monitoring.
 

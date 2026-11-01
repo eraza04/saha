@@ -36,3 +36,15 @@ After C, also ask: “Did you choose to use swipes? Why or why not?” and “Ho
 7. Is there anything else you would like us to know?
 
 Note the condition order when interpreting preferences, and retain negative or mixed views. Ask permission under the agreed consent procedure before quoting comments. Do not collect personal medicine histories, make clinical recommendations, or claim that preferences establish health benefit.
+
+## Optional 1.3 extension questions, after timed tasks
+
+- Which input method did you use, and why?
+- If you tried voice typing, how did reviewing and correcting the text feel?
+- Was it clear when the microphone was listening, when text entered a field and when a record was saved?
+- What did Cancel voice typing, Cancel form and Discard draft do?
+- Did restoring unfinished work help or cause confusion?
+- Which theme did you prefer with your usual viewing/assistive-technology settings, and why?
+- Did any label, focus movement or status announcement cause difficulty?
+
+Record declined microphone use and technical failures without treating them as participant failures. Offer spoken feedback if preferred and record the collection method and any assistance.

@@ -3,7 +3,7 @@ export const ORDERS = ['ABC','ACB','BAC','BCA','CAB','CBA'];
 export const TASK_IDS = ['dose','later','visit','contact','home'];
 export const newId = () => globalThis.crypto?.randomUUID?.() || Date.now().toString(36)+'-'+Math.random().toString(36).slice(2);
 export const newResearch = () => ({version:1,sessions:[],currentSessionId:null,events:[],results:[],active:null});
-const configOK = c => c && ['comfortable','large','largest'].includes(c.size) && ['contrast','roomy','gestures'].every(k=>typeof c[k]==='boolean');
+const configOK = c => c && (c.dark===undefined||typeof c.dark==='boolean') && ['comfortable','large','largest'].includes(c.size) && ['contrast','roomy','gestures'].every(k=>typeof c[k]==='boolean');
 const countsOK = a => Number.isInteger(a.help) && a.help>=0 && Number.isInteger(a.errors) && a.errors>=0;
 export function restoreResearch(value){
   const r=structuredClone(value);
@@ -34,7 +34,7 @@ export function restoreResearch(value){
 export function makeSession(participantCode,conditionOrder,config){
   if(!/^[A-Za-z0-9_-]{1,20}$/.test(participantCode)||!ORDERS.includes(conditionOrder)||!configOK(config))throw new Error('Use a participant code (letters, digits, - or _) and an order.');
   if(!config.gestures)throw new Error('Enable Optional swipes in condition C before creating the session. C must offer gestures; participants may use buttons throughout.');
-  return {id:newId(),participantCode,conditionOrder,config:{...config},build:BUILD,createdAt:new Date().toISOString()};
+  return {id:newId(),participantCode,conditionOrder,config:{...config,dark:Boolean(config.dark)},build:BUILD,createdAt:new Date().toISOString()};
 }
 export function sessionContext(r){
   const s=r.sessions.find(s=>s.id===r.currentSessionId);

@@ -14,7 +14,7 @@ async function insideViewport(app){
   await expect(app.locator('.app-nav')).toBeInViewport({ratio:1});
   for(const button of await app.locator('.app-nav button').all())await expect(button).toBeInViewport({ratio:1});
   const metrics=await app.evaluate(()=>({scrollY,documentHeight:document.documentElement.scrollHeight,innerHeight,visualHeight:visualViewport.height,phone:document.querySelector('#phone').getBoundingClientRect().toJSON(),header:document.querySelector('.app-top').getBoundingClientRect().toJSON(),content:document.querySelector('.app-body').getBoundingClientRect().toJSON(),nav:document.querySelector('.app-nav').getBoundingClientRect().toJSON(),back:document.querySelector('.app-return button').getBoundingClientRect().toJSON(),build:document.documentElement.dataset.build,url:location.href}));
-  expect(metrics.build).toBe('saha-phase1-1.2.2');expect(metrics.scrollY).toBe(0);expect(metrics.documentHeight).toBeLessThanOrEqual(metrics.innerHeight);
+  expect(metrics.build).toBe('saha-phase1-1.4.0');expect(metrics.scrollY).toBe(0);expect(metrics.documentHeight).toBeLessThanOrEqual(metrics.innerHeight);
   expect(metrics.phone.height).toBeLessThanOrEqual(metrics.visualHeight+1);expect(metrics.header.bottom).toBeLessThanOrEqual(metrics.content.top+1);expect(metrics.content.bottom).toBeLessThanOrEqual(metrics.nav.top+1);expect(metrics.nav.bottom).toBeLessThanOrEqual(metrics.visualHeight+1);
   return metrics;
 }

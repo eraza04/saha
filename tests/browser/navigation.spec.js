@@ -59,7 +59,7 @@ for(const width of [320,360,390]){
     let p=page;await start(p,width);await nav(p,'Medicine');await p.getByRole('button',{name:'Add medicine',exact:true}).click();
     await p.getByLabel('Medicine name').fill('Fictional daily medicine for clear return navigation');await p.getByLabel('Daily reminder time',{exact:true}).fill('08:15');await p.getByRole('button',{name:'Save medicine',exact:true}).click();
     await arrived(p,'medicinedetail');await expect(p.getByRole('heading',{name:'Fictional daily medicine for clear return navigation',exact:true})).toBeVisible();const before=await records(p),id=(await state(p)).selectedMedicineId;
-    await scrollDown(p);await pinned(p,'Back to Medicine');await p.getByRole('button',{name:'Open reminder',exact:true}).click();await arrived(p,'dose');
+    await scrollDown(p);await pinned(p,'Back to Medicine');await p.getByRole('button',{name:'View reminder',exact:true}).click();await arrived(p,'dose');
     await scrollDown(p);expect(await screen(p).evaluate(el=>el.scrollTop)).toBeGreaterThan(0);await pinned(p,'Back to Medicine');await p.getByRole('button',{name:'Back to Medicine',exact:true}).click();await arrived(p,'meds');expect(await records(p)).toEqual(before);
     await p.locator('[data-action="medicine:'+id+'"]').click();await p.reload();expect(await screen(p).evaluate(el=>el.scrollTop)).toBe(0);await scrollDown(p);await p.getByRole('button',{name:'Back to Medicine',exact:true}).click();await arrived(p,'meds');
     await p.locator('[data-action="medicine:'+id+'"]').click();p=await directEntry(p);await scrollDown(p);await pinned(p,'Back to Medicine');await p.getByRole('button',{name:'Back to Medicine',exact:true}).click();await arrived(p,'meds');expect(await records(p)).toEqual(before);
@@ -109,7 +109,7 @@ for(const width of [320,360,390,1280])test('one aligned persistent parent across
     {open:async()=>{await nav(page,'Medicine');await page.getByRole('button',{name:'View all records',exact:true}).click();},label:'Back to Medicine',parent:'meds'},
     {open:async()=>{await nav(page,'People');await page.locator('[data-action="person:0"]').click();},label:'Back to People',parent:'people'},
     {open:async()=>{await nav(page,'People');await page.locator('[data-action="person:0"]').click();await page.getByRole('button',{name:'Call preview',exact:true}).click();},label:'Back to People',parent:'people',cancel:'contact'},
-    {open:async()=>{await nav(page,'Medicine');await page.locator('[data-action="medicine:A"]').click();await page.getByRole('button',{name:'Postpone reminder',exact:true}).click();},label:'Back to Medicine',parent:'meds',cancel:'dose'},
+    {open:async()=>{await nav(page,'Medicine');await page.locator('[data-action="medicine:A"]').click();await page.getByRole('button',{name:'Snooze',exact:true}).click();},label:'Back to Medicine',parent:'meds',cancel:'dose'},
     {open:async()=>{await sampleVisit(page);await page.getByRole('button',{name:'Delete appointment',exact:true}).click();},label:'Back to Visits',parent:'visits',cancel:'visit'},
     {open:async()=>{await nav(page,'Medicine');await page.locator('[data-action="editmedicine:A"]').click();await page.getByRole('button',{name:'Archive medicine',exact:true}).click();},label:'Back to Medicine',parent:'meds',cancel:'editmedicine'},
     {open:()=>page.getByRole('button',{name:'Comfort settings',exact:true}).click(),label:'Back to Today',parent:'home'},

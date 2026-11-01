@@ -1,6 +1,6 @@
 # Saha: planned exploratory usability experiment
 
-This document describes intended work for the Phase 1 HCI course submission. No recruitment, pilot sessions, participant testing, results or research approval are claimed. The running prototype and the planned experiment are separate deliverables. The current study build is `saha-phase1-1.2.2`; the build and configuration used in each actual session will be recorded.
+This document describes intended work for the Phase 1 HCI course submission. No recruitment, pilot sessions, participant testing, results or research approval are claimed. The running prototype and the planned experiment are separate deliverables. The current build is `saha-phase1-1.4.0`; the build and configuration used in each actual session will be recorded.
 
 ## Aim and research questions
 
@@ -18,18 +18,18 @@ The conditions use the same screen renderer, fictional records, task logic, word
 | Implemented feature | A: conventional baseline | B: accessible buttons | C: accessible with optional gestures |
 |---|---|---|---|
 | Content base size | Fixed 16 px | Selected 19, 22 or 25 px | Exactly B's selected size |
-| Primary action minimum height | 44 px | 56 px; 66 px with More space | Exactly B |
-| Top control minimum height | 44 px | 44 px | 44 px |
+| Primary action minimum height | 48 px | 56 px; 66 px with More space | Exactly B |
+| Top control minimum height | 48 px | 48 px | 48 px |
 | Main navigation minimum height | 54 px | 64 px; 72 px with More space | Exactly B |
 | Task card minimum height | 64 px, 12 px padding, 9 px corners | 78 px, 17/13 px padding, 14 px corners; More space uses 91 px, 20/15 px padding | Exactly B |
 | General card presentation | 15 px padding, 10 px corners | 18 px padding, 18 px corners; hero cards use 20 px padding | Exactly B |
 | Primary button corners | 8 px | 13 px | 13 px |
 | Heading scaling | Main heading 1.5 times content size; hero heading 1.2 times | Main heading 1.58 times; hero heading 1.4 times | Exactly B |
-| Text and background choices | Fixed baseline palette; selected contrast/spacing/size classes are not applied | Selected default or stronger contrast; selected spacing | Exactly B's colors and spacing |
-| Small navigation/top labels | Baseline 11 px / 13 px | Relative to selected content size | Exactly B |
+| Text and background choices | Light or dark theme; baseline sizing/density retained; selected contrast/spacing/size classes are not applied | Selected default or stronger contrast; selected spacing | Exactly B's theme, colors and spacing |
+| Small navigation/top labels | Baseline minimum 12 px / 14 px | Relative to selected content size | Exactly B |
 | Horizontal swipes | Disabled | Disabled | Optional between main sections only |
 
-Some controls, such as form fields and several supporting controls, share dimensions across conditions. The table lists CSS minimum heights; padding, icons, wrapping and text can make actual controls taller. For example, the current Record taken button measures 50 px in A, despite its 44 px CSS minimum. A is a conventional package of smaller text/actions and denser cards, not a claim that all of its controls are 44 px. Both B and C retain the same controls and destinations; swipe-related controls are unavailable in A/B and available in C. During timed tasks, comfort choices are locked in all conditions. Navigation buttons remain available in C, and choosing only buttons is valid.
+Some controls, such as form fields and several supporting controls, share dimensions across conditions. The table lists CSS minimum heights; padding, icons, wrapping and text can make actual controls taller. A retains denser cards and a 48 px primary-action minimum, while B/C use larger primary actions. The shared 48 px accessibility floor applies to supporting interactive targets in all conditions. Both B and C retain the same controls and destinations; swipe-related controls are unavailable in A/B and available in C. During timed tasks, comfort choices are locked in all conditions. Navigation buttons remain available in C, and choosing only buttons is valid.
 
 The actual styles and condition classes are in `style.css`, `participant.css` and `app.js`; shared screen content is in `participant-screens.js`. A's shell background/soft color are `#fafbfa` / `#eef2ed`; B/C use `#fbfcf8` / `#e6eee2` by default. Stronger contrast is a shared B/C option. As navigation structure is shared, this experiment does **not isolate navigation simplification**. A/B differences must be interpreted as the combined accessible presentation package.
 
@@ -57,7 +57,7 @@ We provisionally allow 5–8 minutes for consent/background, 5–8 for setup/pra
 
 The exact read-aloud instructions, starting states, success criteria, task-specific errors, assistance rules and provisional 120-second stopping limit appear in [TASK_SCRIPT.md](TASK_SCRIPT.md). The five tasks are:
 
-1. Record Medicine A as taken when the scenario explicitly states it has already been taken.
+1. Record Vitamin D (demo) as taken when the scenario explicitly states it has already been taken.
 2. Postpone its reminder by 20 minutes without recording taken.
 3. Find the next appointment's full date, time, location and room.
 4. Find Nida and reach call confirmation, without starting a preview.
@@ -109,3 +109,17 @@ Task preparation explicitly warns before replacing only the study sample store a
 Build 1.2.2 includes fictional record management and the shared-column header. We will verify the actual loaded build in Help before a study session. We will freeze and verify one build before the pilot or main study rather than combine results from different versions. The original five timed tasks remain unchanged and use freshly prepared study samples. We will not require users to enter their own health information. During untimed practice we will explain that records are fictional, archiving retains history, and editing a time affects tomorrow rather than an existing occurrence. We may explore adding/editing a fictional record in a separately labeled pilot activity, outside the primary five-task comparison. If we later add record-management tasks to the main experiment, we will revise neutral instructions, success/error definitions and timing limits after the pilot and before recruitment.
 
 Reminders are in-page demonstrations only. We will not close the page to test a background alert or treat a reminder as clinically reliable. Due/overdue medicine reminders do not establish missed ingestion. We will ask retrospective questions to check whether participants distinguish a dated record, a future time edit, postponement and acknowledgement. No completed evaluation of these changes is claimed.
+
+## Planned voice, draft and dark-theme extension (local candidate 1.3)
+
+The local candidate adds optional English dictation on text fields, saved unfinished forms and a manually chosen dark theme. These are shared functions across A/B/C. Theme is recorded with comfort settings and held identical between B and C; both retain the same voice controls and draft behavior. C adds optional section gestures only. These additions do not isolate voice-input benefits in the original A/B or B/C comparisons. Older exports keep their original build/configuration, so they must not be treated as observations from 1.3.
+
+We also intend to consider a separate exploratory evaluation with adults aged 18+ who self-report ADHD and/or blindness or low vision, subject to accessible recruitment and instructor consent/research requirements. We will record overlapping needs, age, device experience and usual assistive technologies. The original 60+ motor/visual study remains a separate proposed cohort; we must finalize the revised scope and recruitment target before recruiting and must not pool different groups as if they were one population. No recruitment, diagnosis verification, pilot or approval has occurred.
+
+A possible additional task is to enter a fictional appointment title/location, review and correct the text, and save it. We will compare ordinary entry with the same interface offering optional voice input, with the same theme and comfort settings, equivalent text and balanced order. Participants may continue typing. We will separately record whether voice was attempted/accepted, recognition errors, corrections, assistance, task success, time and preference with reasons. A request to use the microphone does not establish successful recognition or comprehension. Recognition accuracy, device/browser/language, environmental noise and microphone permission will be recorded as limitations. Timing limits and session duration will be finalized after an intended-user pilot.
+
+Participants may give feedback through a keyboard/screen-reader-accessible form or a spoken interview, using participant codes. Screen sharing or recordings require separate consent; no recording is required by the app. Explain before activating voice that the browser provider may process audio remotely; Saha saves no audio. Only fictional text is used. Accepted text is a browser-local draft/record; research event exports omit transcripts. Any microphone failure or declined permission keeps ordinary entry available and is recorded without excluding that participant's attempt. Browser mocks used in developer checks are not participant evidence or real recognition-accuracy results.
+
+### Local 1.4 reminder review changes
+
+All conditions share the same clock-derived status labels, reminder actions, Next up card, Today-only reminder area, persistent reader and simulated contact messaging. A retains 16 px content and denser cards; shared readability floors are 14 px helper text, 12 px navigation labels and 48 px touch targets. B/C retain identical comfort settings and presentation. Earlier session exports are not relabeled as this build. Timed tasks must use the exact revised visible wording and equivalent fictional records. Missed describes a reminder window only; Skip is a dismissible/removable reminder state and never advice about taking or omitting medicine. Do not treat either as observed health behavior. The prototype's 30-minute medicine/appointment display windows must be explained consistently. No participant results or approval are claimed.

@@ -1,5 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
+// Keep the original fictional appointment scenario stable as the real date advances.
+test.beforeEach(async({page})=>{await page.clock.install({time:new Date('2026-10-25T12:00:00')});});
 const nav=(page,name)=>page.getByRole('navigation',{name:'Main app sections'}).getByRole('button',{name,exact:true}).click();
 async function start(page){await page.goto('/');await page.getByRole('button',{name:'Start with Today'}).click();}
 async function care(page){return page.evaluate(()=>{
@@ -9,6 +11,7 @@ async function care(page){return page.evaluate(()=>{
  return {...s,doses:{A:latest('A'),B:latest('B')},contact:s.contacts[0],otherContact:s.contacts[1]};
 });}
 async function touchSwipe(page,x,y,dx,dy=0){
+  if(y===110)y=await page.locator('.app-body').evaluate(el=>el.getBoundingClientRect().top+12);
   const cdp=await page.context().newCDPSession(page);
   await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x,y}]});
   for(let i=1;i<=10;i++){
@@ -22,29 +25,29 @@ test('root is participant only; both medicines record, persist, prevent duplicat
   await page.screenshot({path:'test-results/today-390.png'});
   await expect(page.locator('.sidebar,.phone-status,.annotation-panel,#condition,#task-strip')).toHaveCount(0);
   await nav(page,'Medicine');await page.locator('[data-action="medicine:A"]').click();
-  await page.getByRole('button',{name:'Record taken',exact:true}).click();
+  await page.getByRole('button',{name:'Taken',exact:true}).click();
   await expect(page.locator('.success-card')).toContainText('2026');
   await page.reload();await page.getByRole('button',{name:'View record',exact:true}).click();
   expect((await care(page)).events.filter(e=>e.type==='taken')).toHaveLength(1);
   await nav(page,'Medicine');await page.locator('[data-action="medicine:B"]').click();
   await expect(page.locator('.app-body')).toContainText('8:00 pm');
-  await page.getByRole('button',{name:'Record taken',exact:true}).click();
+  await page.getByRole('button',{name:'Taken',exact:true}).click();
   expect((await care(page)).doses.B.status).toBe('taken');
   await page.getByRole('button',{name:'Correct record',exact:true}).click();
   await expect(page.locator('.app-body')).toContainText('not an instruction to take another dose');
   expect((await care(page)).doses.A.status).toBe('taken');expect((await care(page)).doses.B.status).toBe('pending');
-  await page.getByRole('button',{name:'Back to Medicine',exact:true}).click();await expect(page.locator('.app-body')).toContainText('Medicine B');await expect(page.getByRole('heading',{name:'Recorded taken',exact:true})).toHaveCount(0);
+  await page.getByRole('button',{name:'Back to Medicine',exact:true}).click();await expect(page.locator('.app-body')).toContainText('Cetirizine (demo)');await expect(page.getByRole('heading',{name:'Recorded taken',exact:true})).toHaveCount(0);
   await page.reload();expect((await care(page)).doses.B.status).toBe('pending');expect(errors).toEqual([]);
 });
 test('postpone and replace reminder; foreground due reminder; prescribed schedule stays unchanged',async({page})=>{
-  await start(page);await page.getByRole('button',{name:'Open reminder',exact:true}).click();
-  await page.getByRole('button',{name:'Postpone reminder'}).click();await page.getByRole('button',{name:'20 minutes',exact:true}).click();
+  await start(page);await page.getByRole('button',{name:'View reminder',exact:true}).click();
+  await page.getByRole('button',{name:'Snooze'}).click();await page.getByRole('button',{name:'20 minutes',exact:true}).click();
   await expect(page.locator('.success-card')).toContainText('Original schedule: 9:00 am');
   const first=(await care(page)).doses.A;expect(first.delay).toBe(20);expect(first.remindAt).toBeTruthy();
   await page.getByRole('button',{name:'Change reminder'}).click();await page.getByRole('button',{name:'30 minutes',exact:true}).click();
   await page.reload();expect((await care(page)).doses.A.delay).toBe(30);
   await page.evaluate(()=>{const x=JSON.parse(localStorage.getItem('saha:v1:participant'));x.state.occurrences[x.state.selectedOccurrenceId].remindAt=new Date(Date.now()-1000).toISOString();localStorage.setItem('saha:v1:participant',JSON.stringify(x));});
-  await page.reload();await expect(page.locator('#foreground-reminders')).toContainText('Medicine A reminder is ready');
+  await page.reload();await nav(page,'Today');await expect(page.locator('.hero-card')).toContainText('Due now');
 });
 test('appointment details and reminder acknowledgement remain visible after reload',async({page})=>{
   await start(page);await nav(page,'Visits');await page.locator('[data-action="appointment:sample-visit"]').click();
@@ -82,8 +85,8 @@ test('actual slow touch swipes move only main sections and preserve care records
   await touchSwipe(page,300,110,-210);await expect(page.locator('[data-action="nav:meds"]')).toHaveAttribute('aria-current','page');
   await touchSwipe(page,300,110,-210);await expect(page.locator('[data-action="nav:visits"]')).toHaveAttribute('aria-current','page');
   await touchSwipe(page,90,110,210);await expect(page.locator('[data-action="nav:meds"]')).toHaveAttribute('aria-current','page');
-  await page.locator('[data-action="medicine:A"]').click();await touchSwipe(page,300,110,-210);await expect(page.getByRole('button',{name:'Record taken',exact:true})).toBeVisible();
-  const take=page.getByRole('button',{name:'Record taken',exact:true});await take.scrollIntoViewIfNeeded();const box=await take.boundingBox();await touchSwipe(page,box.x+box.width-25,box.y+box.height/2,-180);
+  await page.locator('[data-action="medicine:A"]').click();await touchSwipe(page,300,110,-210);await expect(page.getByRole('button',{name:'Taken',exact:true})).toBeVisible();
+  const take=page.getByRole('button',{name:'Taken',exact:true});await take.scrollIntoViewIfNeeded();const box=await take.boundingBox();await touchSwipe(page,box.x+box.width-25,box.y+box.height/2,-180);
   expect((await care(page)).events).toEqual([]);
   await nav(page,'People');await page.locator('[data-action="person:0"]').click();await page.getByRole('button',{name:'Call preview',exact:true}).click();await touchSwipe(page,300,110,-210);await expect(page.getByRole('button',{name:'Start preview',exact:true})).toBeVisible();await expect(page.getByRole('button',{name:'End preview',exact:true})).toHaveCount(0);
   await page.setViewportSize({width:390,height:500});await nav(page,'Today');await touchSwipe(page,200,330,-85,-160);await expect(page.locator('[data-action="nav:home"]')).toHaveAttribute('aria-current','page');
@@ -112,16 +115,16 @@ test('coded sessions retain earlier outcomes, freeze B/C, review replacements, r
   await page.locator('#cancel-prepare').click();expect((await care(page))).toBeNull();
   await page.locator('[data-start-task="dose"]').click();const popup=context.waitForEvent('page');await page.locator('#confirm-prepare').click();const participant=await popup;await participant.waitForLoadState();
   expect(new URL(participant.url()).pathname).toBe('/');await expect(participant.locator('#condition,#task-strip,.study-active,#participant-code')).toHaveCount(0);await expect(participant.locator('#phone')).toHaveClass(/largest-text high-contrast roomy/);
-  await expect(page.locator('#begin-timer')).toBeVisible();await page.locator('#begin-timer').click();await participant.getByRole('button',{name:'Open reminder',exact:true}).click();await participant.getByRole('button',{name:'Record taken',exact:true}).click();
+  await expect(page.locator('#begin-timer')).toBeVisible();await page.locator('#begin-timer').click();await participant.getByRole('button',{name:'View reminder',exact:true}).click();await participant.getByRole('button',{name:'Taken',exact:true}).click();
   await expect(page.locator('[data-task-result="completed"]')).toBeVisible();expect(await page.evaluate(()=>JSON.parse(localStorage.getItem('saha:v1:research')).results.length)).toBe(0);
   await page.locator('[data-task-result="completed"]').click();await expect(page.locator('.metric').first()).toContainText('1');
-  const b=await page.evaluate(()=>JSON.parse(localStorage.getItem('saha:v1:research')).results[0]);expect(b.build).toBe('saha-phase1-1.2.2');expect(b.participantCode).toBe('P01');expect(b.navigation.buttons).toBeGreaterThan(0);expect(b.gesturesEnabled).toBe(false);
+  const b=await page.evaluate(()=>JSON.parse(localStorage.getItem('saha:v1:research')).results[0]);expect(b.build).toBe('saha-phase1-1.4.0');expect(b.participantCode).toBe('P01');expect(b.navigation.buttons).toBeGreaterThan(0);expect(b.gesturesEnabled).toBe(false);
   await page.locator('[data-view="prototype"]').click();await page.locator('#condition').selectOption('C');await page.getByRole('button',{name:'Comfort settings',exact:true}).click();await page.getByRole('button',{name:'Standard text'}).click();
   await page.locator('[data-view="study"]').click();await page.locator('[data-start-task="later"]').click();await page.locator('#confirm-prepare').click();
-  await expect(participant.getByRole('button',{name:'Postpone reminder'})).toBeVisible();await expect(participant.locator('#phone')).toHaveClass(/largest-text high-contrast roomy/);await page.locator('#begin-timer').click();
-  await participant.getByRole('button',{name:'Postpone reminder'}).click();await participant.getByRole('button',{name:'20 minutes',exact:true}).click();await page.locator('#help-event').click();await page.locator('[data-task-result="completed"]').click();
+  await expect(participant.getByRole('button',{name:'Snooze'})).toBeVisible();await expect(participant.locator('#phone')).toHaveClass(/largest-text high-contrast roomy/);await page.locator('#begin-timer').click();
+  await participant.getByRole('button',{name:'Snooze'}).click();await participant.getByRole('button',{name:'20 minutes',exact:true}).click();await page.locator('#help-event').click();await page.locator('[data-task-result="completed"]').click();
   await expect(page.locator('.metric').first()).toContainText('2');const c=await page.evaluate(()=>JSON.parse(localStorage.getItem('saha:v1:research')).results[1]);expect(c.config).toEqual(b.config);expect(c.result).toBe('assisted');expect(c.gesturesEnabled).toBe(true);
-  const csvPromise=page.waitForEvent('download');await page.locator('#export-results').click();const csv=await csvPromise;expect(csv.suggestedFilename()).toContain('saha-P01-');const csvText=await readFile(await csv.path(),'utf8');expect(csvText).toContain('participantCode');expect(csvText).toContain('saha-phase1-1.2.2');expect(csvText).toContain('assisted');
+  const csvPromise=page.waitForEvent('download');await page.locator('#export-results').click();const csv=await csvPromise;expect(csv.suggestedFilename()).toContain('saha-P01-');const csvText=await readFile(await csv.path(),'utf8');expect(csvText).toContain('participantCode');expect(csvText).toContain('saha-phase1-1.4.0');expect(csvText).toContain('assisted');
   const jsonPromise=page.waitForEvent('download');await page.locator('#export-events').click();const json=await jsonPromise;const data=JSON.parse(await readFile(await json.path(),'utf8'));expect(data.session.participantCode).toBe('P01');expect(data.results).toHaveLength(2);expect(data.events.every(e=>e.participantCode==='P01')).toBe(true);
   await page.locator('#participant-code').fill('P02');await page.getByRole('button',{name:'Create new coded session'}).click();expect(await page.evaluate(()=>JSON.parse(localStorage.getItem('saha:v1:research')).results.length)).toBe(2);
   await page.locator('[data-start-task="home"]').click();await page.locator('#confirm-prepare').click();await page.locator('[data-task-result="failed"]').click();const rows=await page.evaluate(()=>JSON.parse(localStorage.getItem('saha:v1:research')).results);expect(rows[2].participantCode).toBe('P02');expect(rows[2].notStarted).toBe(true);expect(rows[2].sessionId).not.toBe(rows[0].sessionId);
@@ -132,7 +135,7 @@ test('B and C share screen content and computed presentation; A keeps convention
   await start(page);const results=[];
   for(const condition of ['A','B','C']){
     await page.evaluate(condition=>{const x=JSON.parse(localStorage.getItem('saha:v1:participant'));Object.assign(x.state,{condition,size:'largest',contrast:true,roomy:true,gestures:true,screen:'dose'});localStorage.setItem('saha:v1:participant',JSON.stringify(x));},condition);await page.reload();
-    results.push(await page.evaluate(()=>({html:document.querySelector('#app').innerHTML,font:getComputedStyle(document.querySelector('#app')).fontSize,height:document.querySelector('[data-action="take"]').getBoundingClientRect().height,background:getComputedStyle(document.querySelector('#app')).backgroundColor})));
+    results.push(await page.evaluate(()=>({html:document.querySelector('#app').innerHTML,font:getComputedStyle(document.querySelector('#app')).fontSize,height:document.querySelector('[data-action^="takeOccurrence:"]').getBoundingClientRect().height,background:getComputedStyle(document.querySelector('#app')).backgroundColor})));
   }
   expect(results[1]).toEqual(results[2]);expect(results[0].font).toBe('16px');expect(results[1].font).toBe('25px');expect(results[0].height).toBe(50);expect(results[1].height).toBe(66);
 });
@@ -146,7 +149,7 @@ test('timed gesture usage is counted, non-gesture conditions reject swipes, and 
   }
   await page.goto('/studio/');await page.getByRole('button',{name:'Comfort settings',exact:true}).click();await page.locator('[data-pref="gestures"]').check();await page.locator('[data-view="study"]').click();await page.locator('#participant-code').fill('TEST');await page.getByRole('button',{name:'Create new coded session'}).click();
   await page.locator('[data-start-task="dose"]').click();const popup=context.waitForEvent('page');await page.locator('#confirm-prepare').click();const participant=await popup;await participant.waitForLoadState();await page.locator('#begin-timer').click();
-  await touchSwipe(participant,300,110,-210);await expect(participant.locator('[data-action="nav:meds"]')).toHaveAttribute('aria-current','page');await participant.locator('[data-action="medicine:A"]').click();await participant.getByRole('button',{name:'Record taken',exact:true}).click();await page.locator('[data-task-result="failed"]').click();
+  await touchSwipe(participant,300,110,-210);await expect(participant.locator('[data-action="nav:meds"]')).toHaveAttribute('aria-current','page');await participant.locator('[data-action="medicine:A"]').click();await participant.getByRole('button',{name:'Taken',exact:true}).click();await page.locator('[data-task-result="failed"]').click();
   const r=await page.evaluate(()=>JSON.parse(localStorage.getItem('saha:v1:research')).results[0]);expect(r.result).toBe('failed');expect(r.navigation.swipes).toBe(1);expect(r.navigationMethod).toBe('mixed');expect(r.seconds).toBeGreaterThan(0);
   await page.reload();await page.locator('[data-view="study"]').click();await expect(page.locator('#study-content .spec-table')).toContainText('failed');
 });

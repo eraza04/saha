@@ -1,8 +1,8 @@
-export const BUILD = 'saha-phase1-1.2.2';
+export const BUILD = 'saha-phase1-1.4.0';
 // Retain existing storage keys; the envelope version controls migration.
 export const PREFIX = 'saha:v1:';
 export const SAMPLE_DAY = '2026-10-25';
-export const MEDICINES = [{id:'A',name:'Medicine A',time:'09:00'},{id:'B',name:'Medicine B',time:'20:00'}];
+export const MEDICINES = [{id:'A',name:'Vitamin D (demo)',time:'09:00'},{id:'B',name:'Cetirizine (demo)',time:'20:00'}];
 export const VISIT = {date:'Tuesday, 27 October 2026',time:'10:30 am',clinician:'Dr. Sara Ahmed',place:'Community Health Centre',room:'Ground floor · Room 04'};
 export const recordId = () => globalThis.crypto?.randomUUID?.() || Date.now().toString(36)+'-'+Math.random().toString(36).slice(2);
 export const localDay = (now=new Date()) => [now.getFullYear(),String(now.getMonth()+1).padStart(2,'0'),String(now.getDate()).padStart(2,'0')].join('-');
@@ -19,7 +19,7 @@ export function validContact(c) {return Boolean(c && textOK(c.name,40) && textOK
 export const validAppointment = a => Boolean(a && textOK(a.clinician,80) && validDay(a.date) && validTime(a.time) && textOK(a.location,160) && ['none','at-time','day-before'].includes(a.reminder));
 export function defaults(recordsMode='personal',now=new Date()) {
   const day=recordsMode==='study'?SAMPLE_DAY:localDay(now);
-  const s={recordsMode,screen:'welcome',view:'prototype',condition:'C',size:'comfortable',contrast:false,roomy:false,gestures:false,
+  const s={recordsMode,screen:'welcome',view:'prototype',condition:'C',size:'comfortable',contrast:false,roomy:false,gestures:false,dark:false,formDrafts:{},
     medicines:MEDICINES.map(m=>({...m,startDate:day,archivedAt:null,schedule:[{id:recordId(),from:day,time:m.time}],generatedThrough:null})),
     occurrences:{},selectedMedicineId:'A',selectedOccurrenceId:'A~'+day,snooze:10,events:[],
     appointments:[{id:'sample-visit',clinician:VISIT.clinician,date:'2026-10-27',time:'10:30',location:VISIT.place+' · '+VISIT.room,reminder:'at-time',acknowledgedReminderAt:null}],selectedAppointmentId:'sample-visit',
@@ -66,11 +66,13 @@ export function changeMedicine(s,action,delay,now=new Date(),occurrenceId=s.sele
   const o=s.occurrences[occurrenceId],m=s.medicines.find(m=>m.id===o?.medicineId);if(!o||!m||(m.archivedAt&&action!=='undo'))return false;
   let label;
   if(action==='taken'){
-    if(o.status==='taken')return false;o.status='taken';o.takenAt=now.toISOString();delete o.remindAt;delete o.delay;label=o.name+' marked taken';
+    if(o.status==='taken')return false;o.status='taken';delete o.skippedAt;o.takenAt=now.toISOString();delete o.remindAt;delete o.delay;label=o.name+' marked taken';
   }else if(action==='undo'){
-    if(o.status!=='taken')return false;o.status='pending';delete o.takenAt;delete o.remindAt;delete o.delay;label=o.name+' taken entry corrected; no taken record remains';
+    if(!['taken','skipped'].includes(o.status))return false;const skipped=o.status==='skipped';o.status='pending';delete o.skippedAt;delete o.takenAt;delete o.remindAt;delete o.delay;label=o.name+(skipped?' reminder restored':' taken entry corrected; no taken record remains');
+  }else if(action==='skipped'){
+    if(['taken','skipped'].includes(o.status))return false;o.status='skipped';o.skippedAt=now.toISOString();delete o.remindAt;delete o.delay;label=o.name+' reminder skipped; not recorded as taken';
   }else if(action==='postponed'){
-    if(o.status==='taken'||![10,20,30].includes(delay))return false;o.status='postponed';o.delay=delay;o.remindAt=new Date(now.getTime()+delay*60000).toISOString();s.snooze=delay;label=o.name+' reminder postponed by '+delay+' minutes';
+    if(['taken','skipped'].includes(o.status)||![10,20,30].includes(delay))return false;o.status='postponed';o.delay=delay;o.remindAt=new Date(now.getTime()+delay*60000).toISOString();s.snooze=delay;label=o.name+' reminder postponed by '+delay+' minutes';
   }else return false;
   s.events.push({type:action,label,time:now.toISOString(),doseId:m.id,occurrenceId:o.id});return true;
 }
@@ -90,27 +92,28 @@ export function saveContact(s,draft,id=null) {
   if(c)Object.assign(c,clean);else s.contacts.push(c={id:recordId(),...clean});s.selectedContactId=c.id;return c;
 }
 export const sortedAppointments = s => s.emptyVisits?[]:s.appointments.slice().sort((a,b)=>(a.date+'T'+a.time).localeCompare(b.date+'T'+b.time)||a.id.localeCompare(b.id));
-export const upcomingAppointments = (s,now=new Date()) => sortedAppointments(s).filter(a=>Date.parse(scheduledISO(a.date,a.time))>=(s.recordsMode==='study'?Date.parse(SAMPLE_DAY+'T00:00:00'):now.getTime()));
+export const scheduleNow = (s,now=new Date()) => s.recordsMode==='study'?new Date(SAMPLE_DAY+'T'+String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0')+':'+String(now.getSeconds()).padStart(2,'0')).getTime():now.getTime();
+export const upcomingAppointments = (s,now=new Date()) => sortedAppointments(s).filter(a=>Date.parse(scheduledISO(a.date,a.time))+30*60000>=scheduleNow(s,now));
 export function appointmentReminderAt(a) {if(!a||a.reminder==='none')return null;const d=new Date(a.date+'T'+a.time+':00');if(a.reminder==='day-before')d.setDate(d.getDate()-1);return d.toISOString();}
 export function dueReminders(s,now=new Date()) {
-  const scheduleNow=s.recordsMode==='study'?new Date(SAMPLE_DAY+'T'+String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0')+':'+String(now.getSeconds()).padStart(2,'0')).getTime():now.getTime();
-  const medicines=Object.values(s.occurrences).filter(o=>s.medicines.some(m=>m.id===o.medicineId&&!m.archivedAt)&&o.status!=='taken'&&Date.parse(o.status==='postponed'?o.remindAt:o.scheduledAt)<=(o.status==='postponed'?now.getTime():scheduleNow));
-  const appointments=sortedAppointments(s).filter(a=>{const at=appointmentReminderAt(a);return at&&at!==a.acknowledgedReminderAt&&Date.parse(at)<=scheduleNow;});
+  const current=scheduleNow(s,now);
+  const medicines=Object.values(s.occurrences).filter(o=>s.medicines.some(m=>m.id===o.medicineId&&!m.archivedAt)&&!['taken','skipped'].includes(o.status)&&Date.parse(o.status==='postponed'?o.remindAt:o.scheduledAt)<=(o.status==='postponed'?now.getTime():current));
+  const appointments=upcomingAppointments(s,now).filter(a=>{const at=appointmentReminderAt(a);return at&&at!==a.acknowledgedReminderAt&&Date.parse(at)<=current;});
   return {medicines,appointments};
 }
-export function preferences(s) {return {size:s.size,contrast:s.contrast,roomy:s.roomy,gestures:s.gestures};}
-const transient=new Set(['formError','draft','editingId']);
+export function preferences(s) {return {size:s.size,contrast:s.contrast,roomy:s.roomy,gestures:s.gestures,dark:Boolean(s.dark)};}
+const transient=new Set(['formError','draft','editingId','messagePreview']);
 export function snapshot(state) {return {version:2,build:BUILD,state:structuredClone(Object.fromEntries(Object.entries(state).filter(([k])=>!transient.has(k))))};}
 function migrateV1(s,recordsMode,now) {
   if(!s||!['A','B','C'].includes(s.condition)||!['comfortable','large','largest'].includes(s.size)||!['A','B'].includes(s.selectedDose)||!validContact(s.contact)||!validContact(s.otherContact)||![0,1].includes(s.selectedContact)||![10,20,30].includes(s.snooze)||typeof s.screen!=='string'||!Array.isArray(s.events)||!s.doses)throw new Error('Invalid legacy data');
   for(const k of ['contrast','roomy','gestures','visitReminder','visitSeen','emptyVisits','offline','onboarded'])if(typeof s[k]!=='boolean')throw new Error('Invalid legacy preference');
   const fresh=defaults(recordsMode,now);fresh.occurrences={};
   for(const m of fresh.medicines){
-    const o=s.doses[m.id];if(!o||!['pending','taken','postponed'].includes(o.status)||(o.status==='taken'&&!dateOK(o.takenAt))||(o.status==='postponed'&&(!dateOK(o.remindAt)||![10,20,30].includes(o.delay))))throw new Error('Invalid legacy occurrence');
-    m.startDate=SAMPLE_DAY;m.generatedThrough=SAMPLE_DAY;m.schedule[0].from=SAMPLE_DAY;
+    const o=s.doses[m.id];if(!o||!['pending','taken','postponed','skipped'].includes(o.status)||(o.status==='taken'&&!dateOK(o.takenAt))||(o.status==='postponed'&&(!dateOK(o.remindAt)||![10,20,30].includes(o.delay))))throw new Error('Invalid legacy occurrence');
+    m.name='Medicine '+m.id;m.startDate=SAMPLE_DAY;m.generatedThrough=SAMPLE_DAY;m.schedule[0].from=SAMPLE_DAY;
     const id=m.id+'~'+SAMPLE_DAY;fresh.occurrences[id]={id,medicineId:m.id,scheduleId:m.schedule[0].id,name:m.name,date:SAMPLE_DAY,time:m.time,scheduledAt:scheduledISO(SAMPLE_DAY,m.time),...o};
   }
-  if(s.events.some(e=>!e||!['taken','undo','postponed'].includes(e.type)||!['A','B'].includes(e.doseId)||typeof e.label!=='string'||e.label.length>300||!dateOK(e.time)))throw new Error('Invalid legacy activity');
+  if(s.events.some(e=>!e||!['taken','undo','postponed','skipped'].includes(e.type)||!['A','B'].includes(e.doseId)||typeof e.label!=='string'||e.label.length>300||!dateOK(e.time)))throw new Error('Invalid legacy activity');
   fresh.events=s.events.map(e=>({...e,occurrenceId:e.doseId+'~'+SAMPLE_DAY}));
   for(const k of ['screen','condition','size','contrast','roomy','gestures','snooze','emptyVisits','offline','onboarded'])fresh[k]=s[k];
   fresh.contacts=[{...s.contact,id:'contact-0'},{...s.otherContact,id:'contact-1'}];fresh.selectedContactId='contact-'+s.selectedContact;
@@ -122,6 +125,11 @@ export function restore(value,recordsMode='personal',now=new Date()) {
   if(value?.version===1)return migrateV1(value.state,recordsMode,now);
   if(value?.version!==2||!value.state)throw new Error('Unrecognized saved data');
   const s=structuredClone(value.state),unique=items=>new Set(items.map(x=>x.id)).size===items.length;
+  s.dark??=false;s.formDrafts??={};
+  if(typeof s.dark!=='boolean'||!s.formDrafts||typeof s.formDrafts!=='object'||Array.isArray(s.formDrafts))throw new Error('Invalid comfort settings or drafts');
+  for(const [key,draft] of Object.entries(s.formDrafts)){
+    if(!/^(add|edit)(medicine|appointment|contact):[A-Za-z0-9_-]{1,100}$/.test(key)||!draft||typeof draft!=='object'||Array.isArray(draft)||Object.entries(draft).some(([k,v])=>!['name','time','clinician','date','location','reminder','relation','number'].includes(k)||typeof v!=='string'||v.length>160))throw new Error('Invalid saved draft');
+  }
   if(!['personal','study'].includes(s.recordsMode)||!['A','B','C'].includes(s.condition)||!['comfortable','large','largest'].includes(s.size)||typeof s.screen!=='string'||![10,20,30].includes(s.snooze))throw new Error('Invalid saved preferences');
   for(const k of ['contrast','roomy','gestures','emptyVisits','offline','onboarded'])if(typeof s[k]!=='boolean')throw new Error('Invalid preference');
   const idOK=id=>typeof id==='string'&&/^[A-Za-z0-9_-]{1,100}$/.test(id);
@@ -134,10 +142,40 @@ export function restore(value,recordsMode='personal',now=new Date()) {
   if(!s.occurrences||typeof s.occurrences!=='object'||Array.isArray(s.occurrences))throw new Error('Invalid occurrences');
   for(const [id,o] of Object.entries(s.occurrences)){
     const m=s.medicines.find(m=>m.id===o?.medicineId),revision=m?.schedule.find(r=>r.id===o?.scheduleId);
-    if(!o||id!==o.id||id!==o.medicineId+'~'+o.date||!m||!revision||!validDay(o.date)||!validTime(o.time)||!textOK(o.name,80)||!dateOK(o.scheduledAt)||!['pending','taken','postponed'].includes(o.status)||(o.status==='taken'&&!dateOK(o.takenAt))||(o.status==='postponed'&&(!dateOK(o.remindAt)||![10,20,30].includes(o.delay))))throw new Error('Invalid medicine occurrence');
+    if(!o||id!==o.id||id!==o.medicineId+'~'+o.date||!m||!revision||!validDay(o.date)||!validTime(o.time)||!textOK(o.name,80)||!dateOK(o.scheduledAt)||!['pending','taken','postponed','skipped'].includes(o.status)||(o.status==='taken'&&!dateOK(o.takenAt))||(o.status==='postponed'&&(!dateOK(o.remindAt)||![10,20,30].includes(o.delay))))throw new Error('Invalid medicine occurrence');
+    if(o.status==='skipped'&&!dateOK(o.skippedAt))throw new Error('Invalid skipped reminder');
   }
-  if(!Array.isArray(s.events)||s.events.some(e=>!e||!['taken','undo','postponed'].includes(e.type)||!s.occurrences[e.occurrenceId]||s.occurrences[e.occurrenceId].medicineId!==e.doseId||typeof e.label!=='string'||e.label.length>300||!dateOK(e.time)))throw new Error('Invalid activity');
+  if(!Array.isArray(s.events)||s.events.some(e=>!e||!['taken','undo','postponed','skipped'].includes(e.type)||!s.occurrences[e.occurrenceId]||s.occurrences[e.occurrenceId].medicineId!==e.doseId||typeof e.label!=='string'||e.label.length>300||!dateOK(e.time)))throw new Error('Invalid activity');
   for(const [key,list] of [['selectedMedicineId','medicines'],['selectedAppointmentId','appointments'],['selectedContactId','contacts']])if(s[key]!==null&&!s[list].some(x=>x.id===s[key]))throw new Error('Invalid selected record');
   if(s.selectedOccurrenceId!==null&&!s.occurrences[s.selectedOccurrenceId])throw new Error('Invalid selected occurrence');
   s.recordsMode=recordsMode;s.formError='';ensureOccurrences(s,now);return s;
 }
+
+export function formDraftKey(s) {
+  const match=/^(add|edit)(medicine|appointment|contact)$/.exec(s.screen);
+  if(!match)return null;
+  const id=match[1]==='add'?'new':s[{medicine:'selectedMedicineId',appointment:'selectedAppointmentId',contact:'selectedContactId'}[match[2]]];
+  return id?s.screen+':'+id:null;
+}
+
+// Display status is derived from the clock; it never infers actual ingestion.
+export function reminderState(s,o,now=new Date()) {
+ if(o.status==='taken')return {key:'taken',label:'Taken',symbol:'\u2714'};
+ if(o.status==='skipped')return {key:'skipped',label:'Reminder skipped',symbol:'\u25cb'};
+ const at=Date.parse(o.status==='postponed'?o.remindAt:o.scheduledAt),current=o.status==='postponed'?now.getTime():scheduleNow(s,now),elapsed=current-at;
+ return elapsed<0?{key:'upcoming',label:'Upcoming',symbol:'\u25cb'}:elapsed<30*60000?{key:'due',label:'Due now',symbol:'\u25cf'}:{key:'missed',label:'Missed reminder',symbol:'\u26a0'};
+}
+export function relativeReminder(s,o,now=new Date()) {
+ const delta=Date.parse(o.status==='postponed'?o.remindAt:o.scheduledAt)-(o.status==='postponed'?now.getTime():scheduleNow(s,now));
+ if(Math.abs(delta)<60000)return 'Now';
+ const minutes=delta>0?Math.ceil(delta/60000):Math.floor(-delta/60000),duration=minutes<60?minutes+' min':Math.floor(minutes/60)+' h'+(minutes%60?' '+minutes%60+' min':'');
+ return delta>0?'in '+duration:duration+' ago';
+}
+export function nextUpItem(s,now=new Date()) {
+ const med=s.medicines.filter(m=>!m.archivedAt).map(m=>occurrenceForDay(s,m.id,careDay(s,now))).filter(o=>o&&!['taken','skipped'].includes(o.status)).sort((a,b)=>reminderOffset(s,a,now)-reminderOffset(s,b,now))[0];
+ const visit=upcomingAppointments(s,now)[0];
+ if(visit&&(!med||Date.parse(scheduledISO(visit.date,visit.time))-scheduleNow(s,now)<reminderOffset(s,med,now)))return {kind:'visit',record:visit,key:'visit:'+visit.id};
+ return med?{kind:'medicine',record:med,key:'medicine:'+med.id}:null;
+}
+
+function reminderOffset(s,o,now){return Date.parse(o.status==='postponed'?o.remindAt:o.scheduledAt)-(o.status==='postponed'?now.getTime():scheduleNow(s,now));}

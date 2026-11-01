@@ -11,9 +11,9 @@ This is a presenter script for the course submission, separate from a participan
 
 ## Function 1: medicine records and reminders
 
-Open Medicine, select Medicine A, and point out its scheduled 9:00 am time. Say: “For this fictional scenario, the person has already taken the medicine.” Press Record taken. Show the persistent confirmation, then View record and Correct record. Confirm that its state becomes Not recorded as taken and that activity history retains the correction. Explain: “A correction changes the record. It is not an instruction to take another dose.” A recorded dose cannot receive a duplicate taken entry without an explicit correction first.
+Open Medicine, select Vitamin D (demo), and point out its scheduled 9:00 am time. Say: “For this fictional scenario, the person has already taken the medicine.” Press Taken. Show the persistent confirmation, then View record and Correct record. Confirm that its state becomes Not recorded as taken and that activity history retains the correction. Explain: “A correction changes the record. It is not an instruction to take another dose.” A recorded dose cannot receive a duplicate taken entry without an explicit correction first.
 
-Open the reminder again, choose Postpone reminder, then 20 minutes. Show the confirmation's reminder timestamp and original 9:00 am schedule. Explain that postponement changes a reminder, not a prescription. It is an in-app demonstration: due postponed reminders are checked while the page is open, browsers can delay checks, and there are no reliable background notifications when the page is closed.
+Open the reminder again, choose Snooze, then 20 minutes. Show the confirmation's reminder timestamp and original 9:00 am schedule. Explain that postponement changes a reminder, not a prescription. It is an in-app demonstration: due postponed reminders are checked while the page is open, browsers can delay checks, and there are no reliable background notifications when the page is closed.
 
 ## Function 2: appointment information
 
@@ -52,3 +52,11 @@ Keep Largest text, Stronger contrast and More space combined while trying the fo
 After saving a medicine, show its saved details and the header's Back to Medicine action. Open its reminder, scroll the content and use Back to Medicine again without recording or postponing it. After saving an appointment, show the single header Back to Visits action aligned with the title. Scroll and show that the header and bottom navigation remain fully visible, with no duplicate Back in the content. Compare the alignment on desktop and a narrow phone with largest text. Open View reminder, scroll, and use Back to appointment; this does not acknowledge the reminder. Refresh a detail/reminder page and demonstrate the same explicit return.
 
 On create/edit forms, point out the header's persistent Cancel action before and after scrolling. Adding cancels to the relevant section list; editing cancels to that saved record. The app header and Today/Medicine/Visits/People navigation stay outside the scrolling content. New screens start at the top with content focus after in-app navigation; invalid forms focus the invalid field. These controls and destinations are the same across A/B/C.
+
+## Local 1.3 voice, drafts and dark theme
+
+Use the local candidate; the deployed release is still the earlier build. In Settings select Dark mode, Largest text, Stronger contrast and More space. Check Medicine, Visits, People, confirmations, errors and the fixed header/navigation. Turn dark mode off to show that settings can be reversed independently.
+
+Open Add appointment and type fictional details. Navigate to Today, return to Add appointment and refresh to show the restored unfinished form. Cancel or Discard draft and reopen to show it is cleared. Saving creates the record and clears its draft.
+
+Choose Dictate clinician or title. Explain the English/browser-provider processing notice before Start microphone. Use fictional text, review and correct it, optionally read it back, choose Use text and Save separately. Demonstrate Stop, Cancel/Escape and typing fallback. Real recognition depends on the user's browser, microphone, permission and network; automated mocked recognition is not a live speech demonstration. Use a usual screen reader for a separate manual accessibility check.

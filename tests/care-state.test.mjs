@@ -1,4 +1,4 @@
-﻿import test from 'node:test';
+import test from 'node:test';
 import assert from 'node:assert/strict';
 import {defaults,changeMedicine,snapshot,restore,validContact,saveMedicine,archiveMedicine,selectMedicine,selectedOccurrence,occurrenceForDay,ensureOccurrences,saveAppointment,deleteAppointment,upcomingAppointments,saveContact,dueReminders,appointmentReminderAt,nextDay,localDay} from '../care-state.js';
 const now=new Date('2026-10-25T12:00:00');
@@ -81,7 +81,7 @@ test('appointments add/edit/delete by ID and upcoming ordering includes date and
 test('appointment reminders become due, persist overdue, acknowledge once, and reset when time changes',()=>{
  const s=fresh(),a=saveAppointment(s,{clinician:'Test visit',date:'2026-10-26',time:'11:00',location:'Test room',reminder:'day-before'});
  assert.ok(dueReminders(s,now).appointments.some(x=>x.id===a.id));a.acknowledgedReminderAt=appointmentReminderAt(a);assert.ok(!dueReminders(roundTrip(s),now).appointments.some(x=>x.id===a.id));
- saveAppointment(s,{...a,time:'12:00'},a.id);assert.equal(a.acknowledgedReminderAt,null);assert.ok(dueReminders(s,new Date('2026-10-27T12:00:00')).appointments.some(x=>x.id===a.id));
+ saveAppointment(s,{...a,time:'12:00'},a.id);assert.equal(a.acknowledgedReminderAt,null);assert.ok(!dueReminders(s,new Date('2026-10-27T12:00:00')).appointments.some(x=>x.id===a.id));
  const at=saveAppointment(s,{...a,time:'10:00',reminder:'at-time'},a.id);assert.ok(dueReminders(s,new Date('2026-10-26T10:01:00')).appointments.some(x=>x.id===at.id));
 });
 test('adding contacts preserves existing contacts and selected IDs through refresh',()=>{
