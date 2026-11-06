@@ -17,3 +17,8 @@ body.participant { position: fixed; inset: 0; margin: 0; background: #f8f9f3; }
 .storage-notice { padding: 10px 16px; background: #fff2d4; color: #523b14; font-size: 16px; line-height: 1.5; flex: 0 0 auto; }
 .participant .app-nav button, .participant .phone.baseline .app-nav button { font-size: max(12px,.68em); }
 .participant .app-top-btn { min-height: 48px; font-size: max(14px,.8em); }
+
+.participant .app-body.assistant-screen { overflow: hidden; padding-bottom: 0; }
+/* Keep labeled utilities compact without reducing the selected text size. */
+.participant .chat-open .app-top-right { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); width: 100%; gap: 8px; }
+.participant .chat-open .app-top-right .app-top-btn { justify-content: center; flex-direction: column; gap: 4px; min-height: 56px; padding: 6px; }

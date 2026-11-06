@@ -3,6 +3,11 @@ import { readFile, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import os from 'node:os';
+import { Readable } from 'node:stream';
+import { pipeline } from 'node:stream/promises';
+import { existsSync } from 'node:fs';
+import medicineChat from './api/medicine-chat.js';
+if(existsSync(new URL('./.env.local',import.meta.url)))process.loadEnvFile(new URL('./.env.local',import.meta.url));
 
 const projectRoot = path.dirname(fileURLToPath(import.meta.url));
 const preview = process.argv.includes('--dist');
@@ -11,8 +16,18 @@ const port = Number(process.env.SAHA_PORT || (preview ? 5174 : 5173));
 const types = { '.html':'text/html; charset=utf-8', '.md':'text/plain; charset=utf-8', '.csv':'text/csv; charset=utf-8', '.js':'text/javascript; charset=utf-8', '.mjs':'text/javascript; charset=utf-8', '.css':'text/css; charset=utf-8', '.json':'application/json', '.svg':'image/svg+xml', '.png':'image/png', '.jpg':'image/jpeg', '.webp':'image/webp', '.ico':'image/x-icon', '.webmanifest':'application/manifest+json', '.woff2':'font/woff2' };
 const server = http.createServer(async (req, res) => {
   try {
+    const chatPath=new URL(req.url,'http://localhost').pathname;
+    if(chatPath==='/api/medicine-chat'||chatPath==='/api/medicine-chat/'){
+      const origin='http://'+req.headers.host;
+      const cancel=new AbortController();res.on('close',()=>{if(!res.writableEnded)cancel.abort();});
+      const request=new Request(origin+chatPath,{method:req.method,headers:req.headers,signal:cancel.signal,...(!['GET','HEAD'].includes(req.method)?{body:req,duplex:'half'}:{})});
+      const response=await medicineChat.fetch(request);res.writeHead(response.status,Object.fromEntries(response.headers));res.flushHeaders();
+      if(response.body)await pipeline(Readable.fromWeb(response.body),res);else res.end();return;
+    }
+    if (chatPath.startsWith('/api/')||chatPath.startsWith('/lib/')){res.writeHead(404);res.end('Not found');return;}
     if (!['GET','HEAD'].includes(req.method)) { res.writeHead(405); res.end('Method not allowed'); return; }
     const pathname = decodeURIComponent(new URL(req.url, 'http://localhost').pathname);
+    if (/^\/(api|lib)(\/|$)/.test(pathname)) { res.writeHead(404); res.end('Not found'); return; }
     if (pathname === '/studio') { res.writeHead(308, { Location: '/studio/' }); res.end(); return; }
     if (pathname.split('/').some(p => p.startsWith('.'))) { res.writeHead(404); res.end('Not found'); return; }
     let filename = path.resolve(root, '.' + pathname);
@@ -25,6 +40,7 @@ const server = http.createServer(async (req, res) => {
     res.writeHead(200, { 'Content-Type':types[ext], 'Cache-Control':'no-store', 'X-Content-Type-Options':'nosniff' });
     res.end(req.method === 'HEAD' ? undefined : body);
   } catch {
+    if(res.headersSent){res.destroy();return;}
     res.writeHead(404, { 'Content-Type':'text/plain; charset=utf-8' });
     res.end('Not found');
   }

@@ -1,4 +1,4 @@
-export const BUILD = 'saha-phase1-1.4.0';
+export const BUILD = 'saha-phase1-1.6.0';
 // Retain existing storage keys; the envelope version controls migration.
 export const PREFIX = 'saha:v1:';
 export const SAMPLE_DAY = '2026-10-25';

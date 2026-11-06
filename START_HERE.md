@@ -12,9 +12,10 @@ Phase 1 is implemented. The full-screen participant app is at `/`, and the origi
 
 From the directory containing package.json:
 
+    npm.cmd ci
     npm.cmd run dev
 
-On macOS/Linux use npm run dev. There are no external project dependencies, so npm install is not required for this starter.
+On macOS/Linux use npm run dev. Install dependencies first. The optional medicine assistant uses the server-side AI SDK; see docs/MEDICINE_ASSISTANT.md.
 
 Open http://localhost:5173 for the participant app or http://localhost:5173/studio/ for the design studio. Keep the server terminal open. Press Ctrl+C to stop it.
 

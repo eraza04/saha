@@ -1,3 +1,11 @@
+> Local 1.6.0 adds a chat layout and NDJSON response streaming through the same endpoint. It has not been deployed. The local server pipes streamed responses; a future authorized Vercel release must verify streaming and cancellation on the live function as well. Upload/static allowlists are unchanged.
+
+> Local 1.5.2 selects Groq directly with server-only `GROQ_API_KEY`, `SAHA_CHAT_PROVIDER=groq` and `GROQ_MODEL=openai/gpt-oss-20b`. It remains local. Static output stays at ten files and the CLI upload allowlist at eighteen; the Groq SDK is a production dependency. See MEDICINE_ASSISTANT.md for current setup and verification.
+
+> Local 1.5.1 selects OpenRouter Gemma with a server-only `OPENROUTER_API_KEY` and the provider package. It is not deployed. Its CLI input allowlist has eighteen files; static output remains ten. See MEDICINE_ASSISTANT.md for the current configuration.
+
+> Local 1.5 adds an optional AI function and is not deployed. The historical 1.4 static-only instructions below are not sufficient to enable the new assistant. Read MEDICINE_ASSISTANT.md for the ten-file static output, 17-file CLI input allowlist, separate API function, dependencies and server-only configuration. Keep AI disabled until account/budget setup and verification are complete.
+
 > Release 1.4.0 includes voice typing, drafts, dark theme and clock-based reminder review fixes. Public output remains the same eight-file allowlist; voice uses the browser API and adds no server or secrets. Actual readiness, deployment URL and commit are checked at release handover.
 
 # Release Saha to the existing Vercel project

@@ -1,27 +1,28 @@
 # Saha — Phase 1 HCI submission
 
-Saha is a running mobile-first prototype for fictional medicines, appointments and trusted contacts. It is manually customizable, with forest-green/off-white styling, short participant screens and optional Help. The studio, 22-screen atlas and interaction flows are preserved. Current build: `saha-phase1-1.4.0`, with optional voice typing, saved unfinished forms, dark mode and clock-based reminder review improvements. Check Help for the build loaded in your browser.
+Saha is a running mobile-first prototype for fictional medicines, appointments and trusted contacts. It is manually customizable, with forest-green/off-white styling, short participant screens and optional Help. The studio, 22-screen atlas and interaction flows are preserved. Local candidate: `saha-phase1-1.6.0` (production remains 1.4.0), with optional voice typing, saved unfinished forms, dark mode and clock-based reminder review improvements. Check Help for the build loaded in your browser.
 
 ## Run
 
 Use Node.js LTS from this project directory:
 
 ```powershell
+npm.cmd ci
 npm.cmd run dev
 ```
 
-On macOS/Linux use `npm run dev`. Runtime has no external dependencies; installation is only needed for browser tests. Keep the terminal open and stop with Ctrl+C.
+On macOS/Linux use `npm run dev`. Install dependencies first: the optional medicine assistant adds the server-side AI SDK. Keep the terminal open and stop with Ctrl+C.
 
 - Participant app: http://localhost:5173/
 - Studio and researcher tools: http://localhost:5173/studio/
 - Experimental plan: http://localhost:5173/docs/EXPERIMENTAL_PLAN.md
 - Active project: `C:\Users\ezanr\orca\projects\hci-project`
 
-The static server prints possible phone addresses. A phone on the same Wi-Fi can use the printed Wi-Fi IP URL; firewall/VPN/network isolation may prevent access. `SAHA_PORT` changes the port. The server serves files and has no care-data API or database.
+The static server prints possible phone addresses. A phone on the same Wi-Fi can use the printed Wi-Fi IP URL; firewall/VPN/network isolation may prevent access. `SAHA_PORT` changes the port. The server serves frontend files and an optional medicine-information endpoint; it has no care-record API or database.
 
 Production URLs: [participant app](https://saha-lemon.vercel.app/) and [studio](https://saha-lemon.vercel.app/studio/), under the existing `neuraai1/saha` project. Releases use the Vercel CLI from a committed, pushed `master` in the private `eraza04/saha` repository; GitHub is a source backup, with no Vercel Git connection. See [DEPLOYMENT.md](docs/DEPLOYMENT.md) for settings, account steps, upload exclusions and live verification. Unique deployment URLs can require Vercel login; verify the stable production alias before sharing it.
 
-For local packaging, `npm.cmd run build` creates an allowlisted eight-file frontend in `dist/`; `npm.cmd run preview` serves it at http://localhost:5174/ and http://localhost:5174/studio/. Documents and exports are excluded from deployment; local studio document links remain available with `npm.cmd run dev`.
+For local packaging, `npm.cmd run build` creates an allowlisted ten-file frontend in `dist/`; `npm.cmd run preview` serves it at http://localhost:5174/ and http://localhost:5174/studio/. Documents and exports are excluded from deployment; local studio document links remain available with `npm.cmd run dev`.
 
 ## Submission materials
 
@@ -53,7 +54,7 @@ Secondary explanations are in Help. Essential information, confirmation/cancel/c
 
 Calls are previews; no real telephone/emergency service is contacted. Medicine/appointment details are fictional with no clinical integration. Scheduled, postponed and appointment reminders are demonstrated in the open page, approximately every 15 seconds, on opening/refresh and when the page becomes visible. Due/overdue occurrences remain available until recorded or the medicine is archived; postponement delays only that occurrence. Appointment reminders remain until acknowledged, edited or deleted. Browsers may delay checks. There are no closed-page/background notifications or claims of clinical reliability.
 
-Personal fictional records use the device local calendar: active medicines generate one occurrence per day, including elapsed days when the page is reopened. Study samples keep the fixed fictional day Sunday, 25 October 2026 for equivalent tasks. Sample scheduled reminders use that day and the current local clock time; postponed delays use elapsed real time. This is a prototype, not a prescription system. Clock/timezone changes can affect calendar/reminder interpretation; a schedule is not clinically verified. There is no backend, account, authentication, cloud storage, cross-device sync, PWA installation or offline app shell. The offline screen is a labeled design scenario. First load/reload require the server. Speech depends on the browser/device. No clinical safety or validated accessibility claim is made.
+Personal fictional records use the device local calendar: active medicines generate one occurrence per day, including elapsed days when the page is reopened. Study samples keep the fixed fictional day Sunday, 25 October 2026 for equivalent tasks. Sample scheduled reminders use that day and the current local clock time; postponed delays use elapsed real time. This is a prototype, not a prescription system. Clock/timezone changes can affect calendar/reminder interpretation; a schedule is not clinically verified. Care records have no backend, accounts, authentication, cloud storage or cross-device sync. There is no PWA installation or offline app shell. The separately configured AI endpoint can send explicitly submitted chat text to an AI provider; it never reads care records. The offline screen is a labeled design scenario. First load/reload require the server. Speech depends on the browser/device. No clinical safety or validated accessibility claim is made.
 
 ## Storage
 
@@ -125,3 +126,26 @@ Reminder banners/cards appear on Today only. Visits and appointment reminders sh
 Read aloud is a persistent header button. Body text is at least 16 px, essential fields/names at least 16 px, helper text at least 14 px, navigation labels at least 12 px and interactive targets at least 48 px. Comfort settings scale text and preserve the A/B/C differences; B/C retain identical controls except optional gestures. Reduced-motion and increased-contrast preferences are respected.
 
 People rows offer Call and Message. Both are previews: calls still require confirmation, and messages are editable text previews with no real sending. Message text is transient and excluded from care snapshots and study event payloads. No backend, accounts or background notifications were added. See [review verification](docs/REVIEW_VERIFICATION.md) for checks, audit scope and limitations.
+
+## Local 1.6 medicine chat
+
+Choose **Ask about medicines** on Today, Medicine or Help. **Ask Saha** now has user/reply bubbles, suggested questions, readable lists and a message box that stays visible while the conversation scrolls. Replies stream incrementally from the provider through the local server, with complete sentences screened before display. This is real network streaming, without a simulated typing delay. **Stop** interrupts a reply; errors retain the question. Partial/interrupted replies are visibly incomplete and excluded from later context. Earlier messages remain until a confirmed **New chat**, refresh or workspace replacement.
+
+The chat preserves the four main tabs, one Back to Medicine control, largest text, dark/contrast/spacing settings and manual Read aloud. Press Enter to send, Shift+Enter for a newline. Tick **Allow sending to AI** before sending; **About & privacy** explains external processing and limitations. Use fictional details. Chat is held in page memory only, never included in care backups or study payloads, and saved records are not automatically sent. Providers may retain submitted messages under their policies.
+
+The current local provider is Groq, using fixed `openai/gpt-oss-20b` with low reasoning effort. The user has privately configured the key; a real local streamed response has been verified. To configure another local checkout, install dependencies and set these server-only entries in ignored `.env.local`:
+
+```dotenv
+SAHA_CHAT_PROVIDER=groq
+GROQ_MODEL=openai/gpt-oss-20b
+SAHA_CHAT_ENABLED=true
+GROQ_API_KEY=your_groq_key
+```
+
+Restart `npm.cmd run dev` after environment changes. Never put keys in browser code or chat. The free plan is subject to account limits; failures are visible and do not trigger automatic retries or model/provider fallbacks. Earlier OpenRouter Gemma configuration remains an explicit alternative; its previous live checks returned 429.
+
+Answers are general educational information, not clinical advice. The assistant cannot prescribe, diagnose, assess overdose safety, change doses or recommend treatment replacements. It has no record-changing tools or live drug-label retrieval. Output screening is an incomplete backstop, not a safety guarantee. Fixed urgent-help guidance works without an AI provider; its English keyword detection is not medical triage. Check medicine-specific answers with a pharmacist and the leaflet.
+
+See [medicine chat setup, protocol and verification](docs/MEDICINE_ASSISTANT.md). The server endpoint and provider SDK stay outside the ten-file public frontend. This version remains local, with no Git push or Vercel deployment. Developer tests and the fictional live smoke request do not establish clinical accuracy or participant usability.
+
+At viewport heights of 620 px or less, including keyboard-sized windows, chat uses one central scroll area containing the conversation and composer so controls remain reachable. The global header and four tabs stay visible. On taller windows only the transcript scrolls and the composer stays visible. Mobile checks use desktop Chrome emulation; an actual phone keyboard and human screen-reader use still need separate verification.

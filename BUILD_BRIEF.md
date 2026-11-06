@@ -70,3 +70,7 @@ This is an exploratory usability prototype. No clinical claims, real emergency c
 - MyChart: upcoming appointments and structured details — https://www.mychart.org/l/en-us/explore/
 
 These are interaction references, not designs to copy or integrations to claim.
+
+## Later scope change: medicine-information assistant
+
+The instructor-requested November extension supersedes the original exclusion of an AI chatbot. Local 1.5 prepares an optional server-backed medicine-information assistant, with AI account configuration deferred at the user's request. It supplies no prescribing, diagnosis, overdose-safety assessment or treatment substitutions, and cannot change care records. Original reminder, storage and research boundaries remain. See docs/MEDICINE_ASSISTANT.md.

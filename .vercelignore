@@ -17,3 +17,13 @@ scripts/*
 !package-lock.json
 !vercel.json
 !.vercelignore
+
+!medicine-assistant.js
+!medicine-safety.js
+!api
+api/*
+!api/medicine-chat.js
+!lib
+lib/*
+!lib/medicine-chat.mjs
+!lib/chat-provider.mjs

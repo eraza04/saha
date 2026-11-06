@@ -7,6 +7,8 @@ export const FRONTEND_FILES = Object.freeze([
   'studio/index.html',
   'app.js',
   'care-state.js',
+  'medicine-assistant.js',
+  'medicine-safety.js',
   'participant-screens.js',
   'research-state.js',
   'style.css',
